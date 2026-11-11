@@ -65,7 +65,7 @@ export const Hyperlink = ({
   setAppState: React.Component<any, AppState>["setState"];
   onLinkOpen: EasyDrawProps["onLinkOpen"];
   setToast: (
-    toast: { message: string; closable?: boolean; duration?: number } | null,
+    toast: AppState["toast"],
   ) => void;
   updateEmbedValidationStatus: (
     element: EasyDrawEmbeddableElement,

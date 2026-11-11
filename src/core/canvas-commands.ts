@@ -1,4 +1,4 @@
-import { createNativeElement, isConnectorBindingTarget, NativeElementSchema, type EasyDrawElement, type ProjectAsset } from "@easydraw/document-model";
+import { createNativeElement, isConnectorBindingTarget, NativeElementSchema, normalizeConnectorScope, type EasyDrawElement, type ProjectAsset } from "@easydraw/document-model";
 import type { ApplyOperationsInput, ProjectDocument } from "./protocol";
 import { elementBounds, unionBounds } from "./canvas-geometry";
 
@@ -37,6 +37,13 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
     if (result.customData === null) result.customData = undefined;
     return result;
   };
+  // Notes store their text as content; `text` is accepted as plain-text shorthand.
+  const noteText = (type: string, patch: Record<string, unknown>) => {
+    if (type !== "note" || patch.text === undefined) return patch;
+    if (patch.content !== undefined) fail("INVALID_ELEMENT_PROPERTY", "Set either text or content on a note, not both");
+    const { text, ...rest } = patch;
+    return { ...rest, content: { format: "plain", text } };
+  };
   const applyAsset = (type: string, assetRef: string | undefined): Record<string, unknown> => {
     if (!assetRef) return {};
     const resolved = assets.get(assetRef) ?? fail("ASSET_NOT_FOUND", assetRef);
@@ -68,6 +75,7 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
     line: ["points", "startBinding", "endBinding", "startArrowhead", "endArrowhead"],
     arrow: ["points", "startBinding", "endBinding", "startArrowhead", "endArrowhead", "elbowed"],
     freedraw: ["points", "pressures", "simulatePressure"],
+    note: ["content", "text", "fontSize", "fontFamily", "textAlign", "lineHeight", "autoHeight"],
   };
   const specialized = new Set(Object.values(fieldsForType).flat());
   // Arrow styles are exclusive, as in the editor: elbow, curved (roundness) or straight.
@@ -87,8 +95,11 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
   };
   const checkFields = (type: string, patch: Record<string, unknown>) => {
     for (const key of Object.keys(patch)) if (specialized.has(key) && !fieldsForType[type]?.includes(key)) fail("INVALID_ELEMENT_PROPERTY", `${type} does not support ${key}`);
-    if (patch.frameId && type === "arrow") fail("UNSUPPORTED_CONTAINER", "Arrows belong to the canvas, not a frame");
+    if (patch.frameId && type === "arrow") fail("UNSUPPORTED_CONTAINER", "An arrow's frame is derived from its ends: it joins a frame only when both ends are inside that frame. Do not set frameId on arrows");
     if (patch.frameId && type === "frame") fail("UNSUPPORTED_NESTING", "Nested frames are not supported by the current engine");
+    if (Array.isArray(patch.groupIds) && patch.groupIds.length && (type === "frame" || type === "magicframe")) fail("UNSUPPORTED_GROUP", "Frames cannot be grouped");
+    if (Array.isArray(patch.groupIds) && patch.groupIds.length && type === "note") fail("UNSUPPORTED_GROUP", "Notes cannot be grouped");
+    if (patch.frameId && type === "note") fail("UNSUPPORTED_CONTAINER", "Notes belong to the canvas and cannot be placed in a frame");
   };
   for (const [operationIndex, operation] of input.operations.entries()) {
     try {
@@ -97,7 +108,8 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
         if (draft.scene.elements.some(e => e.id === id)) fail("DUPLICATE_ELEMENT_ID", id);
         checkFields(operation.element.type, operation.element);
         if (["frame", "image", "text"].includes(operation.element.type) && (operation.element.width === 0 || operation.element.height === 0)) fail("INVALID_DIMENSIONS", "Frame, text and image dimensions must be positive");
-        const resolved = resolvePatch(operation.element);
+        if (operation.element.type === "note" && operation.element.width === 0) fail("INVALID_DIMENSIONS", "Note width must be positive; height may be 0 to fit the text");
+        const resolved = noteText(operation.element.type, resolvePatch(operation.element));
         const patch = operation.element.type === "arrow" ? arrowStyle(resolved) : resolved;
         const asset = applyAsset(operation.element.type, operation.assetRef);
         // New text fits its content unless a wrapping width is requested, as with the editor's text tool.
@@ -113,7 +125,7 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
       if (operation.op === "update") {
         const element = get(operation.id);
         checkFields(element.type, operation.patch);
-        const patch = element.type === "arrow" ? arrowStyle(resolvePatch(operation.patch), element) : resolvePatch(operation.patch);
+        const patch = element.type === "arrow" ? arrowStyle(resolvePatch(operation.patch), element) : noteText(element.type, resolvePatch(operation.patch));
         if (typeof patch.x === "number") patch.x += origin.x;
         if (typeof patch.y === "number") patch.y += origin.y;
         if (element.type === "text" && patch.text !== undefined) patch.originalText = patch.text;
@@ -183,8 +195,14 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
       } else if (operation.op === "reparent") {
         const frameId = operation.frameId ? resolve(operation.frameId) : null;
         if (frameId && get(frameId).type !== "frame") fail("INVALID_CONTAINER", frameId);
-        for (const e of selected) { checkFields(e.type, { frameId }); touch(e, { frameId }); }
+        for (const e of selected) {
+          if (e.type === "arrow") fail("UNSUPPORTED_CONTAINER", "An arrow's frame is derived from its ends and cannot be reparented; move or rebind its ends instead");
+          if (e.type === "note" && frameId) fail("UNSUPPORTED_CONTAINER", "Notes belong to the canvas and cannot be placed in a frame");
+          checkFields(e.type, { frameId }); touch(e, { frameId });
+        }
       } else if (operation.op === "group" || operation.op === "ungroup") {
+        if (operation.op === "group" && selected.some(e => e.type === "frame" || e.type === "magicframe")) fail("UNSUPPORTED_GROUP", "Frames cannot be grouped");
+        if (operation.op === "group" && selected.some(e => e.type === "note")) fail("UNSUPPORTED_GROUP", "Notes cannot be grouped");
         const groupId = operation.groupId ?? newId("group");
         for (const e of selected) touch(e, { groupIds: operation.op === "group" ? [...new Set([...e.groupIds, groupId])] : e.groupIds.filter(g => g !== groupId) });
         if (operation.op === "group") groups.push({ operationIndex, groupId });
@@ -249,7 +267,8 @@ export function executeCanvasOperations(document: ProjectDocument, input: ApplyO
     const assetId = e.type === "image" ? e.fileId : e.assetId;
     if (assetId && !draft.assets.some(a => a.id === assetId)) fail("ASSET_NOT_FOUND", assetId);
   }
-  draft.scene.elements = draft.scene.elements.map(e => ({ ...e, boundElements: bound.get(e.id) ?? [] }));
+  // Arrow frames are derived from their ends; scope checks must see the committed membership.
+  draft.scene.elements = normalizeConnectorScope(draft.scene.elements.map(e => ({ ...e, boundElements: bound.get(e.id) ?? [] })));
   if (!draft.scene.elements.some(e => e.id === draft.focusedPageElementId && e.type === "frame")) draft.focusedPageElementId = draft.scene.elements.find(e => e.type === "frame")?.id ?? null;
   return { draft, idMap: refs, duplicates, groups, creationOrder };
 }

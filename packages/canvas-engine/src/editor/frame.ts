@@ -33,8 +33,10 @@ import {
 } from "../utils";
 import {
   isArrowElement,
+  isBoundToContainer,
   isFrameElement,
   isFrameLikeElement,
+  isNoteElement,
 } from "./element/typeChecks";
 import type { ReadonlySetLike } from "./utility-types";
 import { isPointWithinBounds, pointFrom } from "../math";
@@ -461,9 +463,10 @@ export const filterElementsEligibleAsFrameChildren = (
   const eligibleElements: EasyDrawElement[] = [];
 
   for (const element of elements) {
-    // don't add frames or their children
+    // don't add frames or their children; notes always stay on the canvas
     if (
       isFrameLikeElement(element) ||
+      isNoteElement(element) ||
       (element.frameId && otherFrames.has(element.frameId))
     ) {
       continue;
@@ -540,9 +543,10 @@ export const addElementsToFrame = <T extends ElementsMapOrArray>(
         element.containerId !== null &&
         elementsMap.get(element.containerId)?.type === "arrow");
 
-    // don't add frames or their children
+    // don't add frames or their children; notes always stay on the canvas
     if (
       isCanvasConnector ||
+      isNoteElement(element) ||
       isFrameLikeElement(element) ||
       (element.frameId && otherFrames.has(element.frameId))
     ) {
@@ -880,10 +884,14 @@ export const shouldApplyFrameClip = (
   elementsMap: ElementsMap,
   checkedGroups?: Map<string, boolean>,
 ) => {
-  // Connectors are canvas-scoped. During a drag, frameToHighlight can still
-  // expose the hovered page as a temporary target frame, but it must never
-  // cause the connector (or its bound label) to be clipped by that page.
-  if (isArrowElement(element)) {
+  // A connector belongs to a page only when both ends are inside it (derived
+  // in the document model). A hovered page (frameToHighlight) must never clip
+  // a connector that is not its member, e.g. a flow between two pages.
+  if (isArrowElement(element) && element.frameId !== frame.id) {
+    return false;
+  }
+  // Notes are never page members, so a hovered page never clips them.
+  if (isNoteElement(element)) {
     return false;
   }
 
@@ -964,6 +972,30 @@ export const getElementsOverlappingFrame = (
       .filter((el) => !el.frameId || el.frameId === frame.id)
   );
 };
+
+/**
+ * Whether grouping these elements spans several frames (or a frame and the
+ * canvas), in which case the frame members are detached first. Canvas-level
+ * connectors and their labels don't count, so grouping a page member with a
+ * cross-page arrow keeps the member in its page.
+ */
+export const isGroupingAcrossFrames = (
+  elements: readonly EasyDrawElement[],
+  elementsMap: ElementsMap,
+) =>
+  new Set(
+    elements
+      .filter(
+        (element) =>
+          !(
+            element.frameId === null &&
+            (isArrowElement(element) ||
+              (isBoundToContainer(element) &&
+                isArrowElement(elementsMap.get(element.containerId))))
+          ),
+      )
+      .map((element) => element.frameId),
+  ).size > 1;
 
 export const frameAndChildrenSelectedTogether = (
   selectedElements: readonly EasyDrawElement[],

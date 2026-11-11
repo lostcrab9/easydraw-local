@@ -1,6 +1,7 @@
 import { KEYS } from "../keys";
 import { register } from "./register";
 import { selectGroupsForSelectedElements } from "../groups";
+import { excludeElementsInFramesFromSelection } from "../scene/selection";
 import { getNonDeletedElements, isTextElement } from "../element";
 import type { EasyDrawElement } from "../element/types";
 import { isLinearElement } from "../element/typeChecks";
@@ -19,13 +20,16 @@ export const actionSelectAll = register({
       return false;
     }
 
-    const selectedElementIds = elements
-      .filter(
+    // Pages stand for their members, so members of a selected page are left
+    // out, as with box selection.
+    const selectedElementIds = excludeElementsInFramesFromSelection(
+      elements.filter(
         (element) =>
           !element.isDeleted &&
           !(isTextElement(element) && element.containerId) &&
           !element.locked,
-      )
+      ),
+    )
       .reduce((map: Record<EasyDrawElement["id"], true>, element) => {
         map[element.id] = true;
         return map;

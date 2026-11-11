@@ -355,6 +355,18 @@ export const TextIcon = createIcon(
   tablerIconProps,
 );
 
+// sticky note: folded-corner paper with two text lines
+export const NoteIcon = createIcon(
+  <g strokeWidth="1.5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M5 4h14a1 1 0 0 1 1 1v9l-6 6H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+    <path d="M14 20v-5a1 1 0 0 1 1-1h5" />
+    <line x1="8" y1="9" x2="16" y2="9" />
+    <line x1="8" y1="13" x2="12" y2="13" />
+  </g>,
+  tablerIconProps,
+);
+
 // modified tabler-icons: photo
 export const ImageIcon = createIcon(
   <g strokeWidth="1.25">
@@ -463,6 +475,23 @@ export const HelpIcon = createIcon(
     <circle cx="12" cy="12" r="9"></circle>
     <line x1="12" y1="17" x2="12" y2="17.01"></line>
     <path d="M12 13.5a1.5 1.5 0 0 1 1 -1.5a2.6 2.6 0 1 0 -3 -4"></path>
+  </g>,
+  tablerIconProps,
+);
+
+// tabler: adjustments-horizontal
+export const PreferencesIcon = createIcon(
+  <g strokeWidth="1.5">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M14 6m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+    <path d="M4 6l8 0" />
+    <path d="M16 6l4 0" />
+    <path d="M8 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+    <path d="M4 12l2 0" />
+    <path d="M10 12l10 0" />
+    <path d="M17 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+    <path d="M4 18l11 0" />
+    <path d="M19 18l1 0" />
   </g>,
   tablerIconProps,
 );

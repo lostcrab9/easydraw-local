@@ -20,7 +20,9 @@ import type {
   EasyDrawArrowElement,
   FixedSegment,
   EasyDrawElbowArrowElement,
+  EasyDrawNoteElement,
 } from "./types";
+import { NOTE_DEFAULTS } from "@easydraw/document-model";
 import {
   arrayToMap,
   getFontString,
@@ -42,6 +44,7 @@ import {
   DEFAULT_TEXT_ALIGN,
   DEFAULT_VERTICAL_ALIGN,
   ORIG_ID,
+  ROUNDNESS,
   VERTICAL_ALIGN,
 } from "../constants";
 import type { MarkOptional, Merge, Mutable } from "../utility-types";
@@ -202,6 +205,41 @@ export const newFrameElement = (
 
   return frameElement;
 };
+
+export const newNoteElement = ({
+  text,
+  fontSize = NOTE_DEFAULTS.fontSize,
+  textAlign = "left",
+  ...opts
+}: {
+  text?: string;
+  fontSize?: number;
+  textAlign?: TextAlign;
+} & ElementConstructorOpts): NonDeleted<EasyDrawNoteElement> =>
+  newElementWith(
+    {
+      ..._newElementBase<EasyDrawNoteElement>("note", {
+        backgroundColor: NOTE_DEFAULTS.backgroundColor,
+        strokeColor: NOTE_DEFAULTS.textColor,
+        strokeWidth: 0,
+        roughness: 0,
+        fillStyle: "solid",
+        roundness: { type: ROUNDNESS.ADAPTIVE_RADIUS, value: NOTE_DEFAULTS.radius },
+        ...opts,
+        // notes always live on the canvas, outside pages and groups
+        frameId: null,
+        groupIds: [],
+      }),
+      type: "note",
+      content: { format: "plain", text: text ?? "" },
+      fontSize,
+      fontFamily: NOTE_DEFAULTS.fontFamily as FontFamilyValues,
+      textAlign,
+      lineHeight: NOTE_DEFAULTS.lineHeight as EasyDrawTextElement["lineHeight"],
+      autoHeight: true,
+    },
+    {},
+  );
 
 export const newMagicFrameElement = (
   opts: {

@@ -10,7 +10,8 @@ import { routeElbowArrow } from "@easydraw/canvas-engine/editor/element/elbowArr
 import type { Mutable } from "@easydraw/canvas-engine/editor/utility-types";
 import type { EasyDrawElbowArrowElement, EasyDrawTextElement, EasyDrawTextElementWithContainer, FontFamilyValues, NonDeletedEasyDrawElement, NonDeletedSceneElementsMap, SceneElementsMap } from "@easydraw/canvas-engine/element/types";
 import type { ProjectDocument } from "../../core/protocol";
-import { textLayoutTargets } from "./text-layout";
+import { noteLayoutTargets, textLayoutTargets } from "./text-layout";
+import { getNoteAutoHeight } from "@easydraw/canvas-engine/editor/renderer/note";
 export async function measureCanvasText(input: { text: string; fontSize: number; fontFamily: number; lineHeight: number; maxWidth?: number }) {
   const sample = createNativeElement({ id: "measurement", type: "text", x: 0, y: 0, width: 1, height: 1, ...input });
   await Fonts.loadElementsFonts([sample]);
@@ -21,6 +22,15 @@ export async function measureCanvasText(input: { text: string; fontSize: number;
 }
 /** Lays out written text exactly as the editor does after an edit. */
 export async function layoutCanvasText(before: ProjectDocument, draft: ProjectDocument) {
+  const notes = noteLayoutTargets(before.scene.elements, draft.scene.elements);
+  if (notes.length) {
+    await Fonts.loadElementsFonts(notes);
+    // Auto-height notes grow to fit their text, as in the editor; a zero height always fits.
+    for (const note of notes) {
+      const fit = getNoteAutoHeight(note);
+      (note as { height: number }).height = note.autoHeight || note.height === 0 ? Math.max(note.height, fit) : note.height;
+    }
+  }
   const targets = textLayoutTargets(before.scene.elements, draft.scene.elements);
   if (targets.length === 0) return;
   await Fonts.loadElementsFonts(targets);

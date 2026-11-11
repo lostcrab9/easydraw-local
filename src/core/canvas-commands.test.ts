@@ -13,14 +13,40 @@ describe("general canvas commands", () => {
     expect(scopeElements(draft, { kind: "document" })).toHaveLength(2);
     expect(canvasOutline(draft, { kind: "document" }, 0, 1)).toMatchObject({ total: 2, nextOffset: 1 });
   });
-  it("resolves forward local refs and mixed grouping in one batch", () => {
+  it("resolves forward local refs and grouping in one batch", () => {
     const { draft, idMap } = apply([
       { ...shape("a", { frameId: "screen" }), ref: "a-ref" },
+      { ...shape("b", { frameId: "screen" }), ref: "b-ref" },
       { op: "create", ref: "screen", element: { type: "frame", x: 0, y: 0, width: 300, height: 300 } },
-      { op: "group", ids: ["a-ref", "screen"], groupId: "component" },
+      { op: "group", ids: ["a-ref", "b-ref"], groupId: "component" },
     ]);
     expect(draft.scene.elements.find(e => e.id === "a")?.frameId).toBe(idMap.screen);
-    expect(draft.scene.elements.every(e => e.groupIds.includes("component"))).toBe(true);
+    expect(draft.scene.elements.filter(e => e.type !== "frame").every(e => e.groupIds.includes("component"))).toBe(true);
+  });
+  it("rejects grouping frames", () => {
+    const page = { op: "create", ref: "screen", element: { type: "frame", x: 0, y: 0, width: 300, height: 300 } };
+    expect(() => apply([page, shape("a"), { op: "group", ids: ["screen", "a"] }])).toThrow("Frames cannot be grouped");
+    expect(() => apply([{ ...page, element: { ...page.element, groupIds: ["g"] } }])).toThrow("Frames cannot be grouped");
+  });
+  it("derives arrow frames from both ends and rejects explicit arrow frames", () => {
+    const pages = [
+      { op: "create", element: { id: "a", type: "frame", x: 0, y: 0, width: 300, height: 300 } },
+      { op: "create", element: { id: "b", type: "frame", x: 400, y: 0, width: 300, height: 300 } },
+      { op: "create", element: { id: "middle", type: "frame", x: 330, y: 0, width: 40, height: 300 } },
+      shape("button", { frameId: "a" }),
+    ];
+    const binding = (elementId: string) => ({ elementId, focus: 0, gap: 4 });
+    const { draft } = apply([...pages,
+      { op: "create", element: { id: "inside", type: "arrow", x: 20, y: 100, width: 200, height: 0, points: [[0, 0], [200, 0]] } },
+      { op: "create", element: { id: "jump", type: "arrow", x: 110, y: 30, width: 400, height: 0, points: [[0, 0], [400, 0]], startBinding: binding("button"), endBinding: binding("b") } },
+      { op: "create", element: { id: "out", type: "arrow", x: 20, y: 100, width: 300, height: 400, points: [[0, 0], [300, 400]] } },
+    ]);
+    const frameOf = (id: string) => draft.scene.elements.find(e => e.id === id)?.frameId;
+    expect(frameOf("inside")).toBe("a");
+    expect(frameOf("jump")).toBeNull();
+    expect(frameOf("out")).toBeNull();
+    expect(() => apply([...pages, { op: "create", element: { id: "x", type: "arrow", frameId: "a", x: 20, y: 20, width: 10, height: 0, points: [[0, 0], [10, 0]] } }])).toThrow("derived from its ends");
+    expect(() => apply([{ op: "reparent", ids: ["inside"], frameId: "a" }], draft)).toThrow("cannot be reparented");
   });
   it("uses explicit local coordinates without implicit membership", () => {
     const d = apply([{ op: "create", element: { id: "frame", type: "frame", x: 300, y: 200, width: 300, height: 300 } }]).draft;

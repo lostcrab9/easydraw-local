@@ -48,6 +48,7 @@ import type {
   EasyDrawRectangleElement,
   EasyDrawSelectionElement,
   EasyDrawTextElement,
+  EasyDrawNoteElement,
 } from "../../editor/element/types";
 import { pointsOnBezierCurves } from "points-on-curve";
 import type { Drawable, Op } from "roughjs/bin/core";
@@ -107,6 +108,7 @@ type RectangularElement =
   | EasyDrawImageElement
   | EasyDrawIframeElement
   | EasyDrawTextElement
+  | EasyDrawNoteElement
   | EasyDrawSelectionElement;
 
 // polygon

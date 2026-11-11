@@ -12,7 +12,6 @@ import type { ClipboardEvent as ReactClipboardEvent } from "react";
 
 import type { IconLibraryIcon, IconLibrarySnapshot, InsertedAssetResult } from "../../desktop-api";
 
-import { DEFAULT_ICON_STROKE } from "./icon-color";
 
 import { blobToBase64 } from "../../canvas/export-page";
 
@@ -36,8 +35,10 @@ interface AssetOptions {
   selectedIds: string[];
   select(ids: string[]): void;
   setNotice(notice: Notice): void;
+  /** Preferred colour and longest side for newly inserted icons. */
+  iconDefaults: { strokeColor: string; size: number };
 }
-export function useAssets({ editorSession, canvasSession, api, projectPath, snapshot, selectedIds, select, setNotice }: AssetOptions) {
+export function useAssets({ editorSession, canvasSession, api, projectPath, snapshot, selectedIds, select, setNotice, iconDefaults }: AssetOptions) {
   const controller = editorSession.controller;
   const [iconLibrary, setIconLibrary] =
     useState<IconLibrarySnapshot | null>(null);
@@ -252,7 +253,7 @@ export function useAssets({ editorSession, canvasSession, api, projectPath, snap
 
     const scale =
       placement === "icon"
-        ? 48 / Math.max(asset.width, asset.height)
+        ? iconDefaults.size / Math.max(asset.width, asset.height)
         : targetPage
           ? Math.min(
               1,
@@ -308,7 +309,7 @@ export function useAssets({ editorSession, canvasSession, api, projectPath, snap
         fill: "transparent",
         stroke:
           placement === "icon"
-            ? DEFAULT_ICON_STROKE
+            ? iconDefaults.strokeColor
             : "transparent",
         strokeWidth: 0,
         radius: 0,

@@ -3,7 +3,7 @@ import type { ActionManager } from "../actions/manager";
 import type { ActionName } from "../actions/types";
 import type { AppClassProperties, AppState } from "../types";
 import { getCommonBounds } from "../element/bounds";
-import { isArrowElement } from "../element/typeChecks";
+import { isArrowElement, isNoteElement } from "../element/typeChecks";
 import { getTargetElements } from "../scene";
 import { hasBackground, hasStrokeWidth, hasStrokeStyle } from "../scene/comparisons";
 import { t } from "../i18n";
@@ -70,6 +70,12 @@ export function SelectionToolbar({ app, appState, renderAction, onOpenInspector 
   if (stroke) sections.push({ id: "stroke", label: t("labels.stroke"), icon: StrokeWidthBaseIcon, actions: ["changeStrokeColor", "changeStrokeWidth", ...(styledStroke ? ["changeStrokeStyle" as const, "changeSloppiness" as const] : [])] });
   if (allText) {
     const fontSize = common("fontSize");
+    sections.push({ id: "size", label: t("labels.fontSize"), icon: <span>{typeof fontSize === "number" ? Math.round(fontSize) : "—"}</span>, actions: ["changeFontSize"] });
+    sections.push({ id: "text-align", label: t("labels.textAlign"), icon: TextAlignLeftIcon, actions: ["changeTextAlign"] });
+  }
+  if (selected.every(isNoteElement)) {
+    const fontSize = common("fontSize");
+    sections.push({ id: "note-color", label: t("labels.noteColor"), icon: swatch(common("backgroundColor")), actions: ["changeNoteColor"] });
     sections.push({ id: "size", label: t("labels.fontSize"), icon: <span>{typeof fontSize === "number" ? Math.round(fontSize) : "—"}</span>, actions: ["changeFontSize"] });
     sections.push({ id: "text-align", label: t("labels.textAlign"), icon: TextAlignLeftIcon, actions: ["changeTextAlign"] });
   }

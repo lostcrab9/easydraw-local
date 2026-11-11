@@ -5,6 +5,7 @@ import { assertNever } from "../utils";
 import type { Bounds } from "./bounds";
 import type {
   EasyDrawElement,
+  EasyDrawNoteElement,
   EasyDrawTextElement,
   EasyDrawEmbeddableElement,
   EasyDrawLinearElement,
@@ -87,6 +88,12 @@ export const isFrameLikeElement = (
   );
 };
 
+export const isNoteElement = (
+  element?: EasyDrawElement | null,
+): element is EasyDrawNoteElement => {
+  return element != null && element.type === "note";
+};
+
 export const isFreeDrawElement = (
   element?: EasyDrawElement | null,
 ): element is EasyDrawFreeDrawElement => {
@@ -158,6 +165,7 @@ export const isBindableElement = (
       element.type === "embeddable" ||
       element.type === "frame" ||
       element.type === "magicframe" ||
+      element.type === "note" ||
       (element.type === "text" && !element.containerId))
   );
 };
@@ -174,6 +182,7 @@ export const isRectanguloidElement = (
       element.type === "embeddable" ||
       element.type === "frame" ||
       element.type === "magicframe" ||
+      element.type === "note" ||
       (element.type === "text" && !element.containerId))
   );
 };
@@ -192,6 +201,7 @@ export const isRectangularElement = (
       element.type === "embeddable" ||
       element.type === "frame" ||
       element.type === "magicframe" ||
+      element.type === "note" ||
       element.type === "freedraw")
   );
 };
@@ -230,6 +240,7 @@ export const isEasyDrawElement = (
     case "frame":
     case "magicframe":
     case "image":
+    case "note":
     case "selection": {
       return true;
     }

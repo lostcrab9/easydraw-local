@@ -32,6 +32,8 @@ Initial planning must stop at the ordered screen regions and a short content sum
 
 - Default to low-fidelity sketches: neutral surfaces, clear borders, readable text, consistent margins and gaps. Honor explicit user styling requests.
 - Use editable text and shapes for UI geometry. Use library icons for recognizable actions; do not replace available icons with emoji or assembled shapes.
+- Draw dividers, separators, underlines, tab indicators drawn as strokes, chart axes and other strokes as native `line` elements, never as thin rectangles: `type: "line"`, `points: [[0, 0], [length, 0]]` (or `[[0, 0], [0, length]]` for vertical), matching `width`/`height` with the zero side set to 0, `strokeWidth: 1`, `roughness: 0`. Lines default to a hand-drawn stroke, so always pass `roughness: 0`. Use `arrow` only for flows and pointers. Keep rectangles for filled bars such as progress tracks or colored blocks.
+- Sticky notes (`type: "note"`) are annotations for reviewers, not UI. Create them only when the user asks for notes or comments; they always stay outside frames and groups.
 - Default bounded image regions to a grouped background shape plus a small centered `builtin:placeholder:image-logo`. Use actual images when explicitly requested; do not fetch stock photos merely to decorate a sketch.
 - Group coherent components: button backgrounds and labels, card contents, navigation items, form fields and each repeated list item. Keep repeated items independently editable. Avoid grouping an entire screen as one component.
 - Use descriptive IDs or local refs. Patch existing elements instead of rebuilding them. Preserve the user's edits outside the requested change.

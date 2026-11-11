@@ -23,9 +23,14 @@ import type {
   OrderedEasyDrawElement,
 } from "../element/types";
 import type { AppClassProperties, AppState } from "../types";
-import { isBoundToContainer } from "../element/typeChecks";
+import {
+  isBoundToContainer,
+  isFrameLikeElement,
+  isNoteElement,
+} from "../element/typeChecks";
 import {
   frameAndChildrenSelectedTogether,
+  isGroupingAcrossFrames,
   getElementsInResizingFrame,
   getFrameLikeElements,
   getRootElements,
@@ -53,6 +58,10 @@ const allElementsInSameGroup = (elements: readonly EasyDrawElement[]) => {
   return false;
 };
 
+/** Pages are top-level containers and notes annotate; neither joins a group. */
+const cannotBeGrouped = (element: EasyDrawElement) =>
+  isFrameLikeElement(element) || isNoteElement(element);
+
 const enableActionGroup = (
   elements: readonly EasyDrawElement[],
   appState: AppState,
@@ -66,7 +75,8 @@ const enableActionGroup = (
   return (
     selectedElements.length >= 2 &&
     !allElementsInSameGroup(selectedElements) &&
-    !frameAndChildrenSelectedTogether(selectedElements)
+    !frameAndChildrenSelectedTogether(selectedElements) &&
+    !selectedElements.some(cannotBeGrouped)
   );
 };
 
@@ -82,8 +92,11 @@ export const actionGroup = register({
         includeBoundTextElement: true,
       }),
     );
-    if (selectedElements.length < 2) {
-      // nothing to group
+    if (
+      selectedElements.length < 2 ||
+      selectedElements.some(cannotBeGrouped)
+    ) {
+      // nothing to group (pages and notes can't be grouped)
       return {
         appState,
         elements,
@@ -120,8 +133,10 @@ export const actionGroup = register({
 
     // this includes the case where we are grouping elements inside a frame
     // and elements outside that frame
-    const groupingElementsFromDifferentFrames =
-      new Set(selectedElements.map((element) => element.frameId)).size > 1;
+    const groupingElementsFromDifferentFrames = isGroupingAcrossFrames(
+      selectedElements,
+      app.scene.getNonDeletedElementsMap(),
+    );
     // when it happens, we want to remove elements that are in the frame
     // and are going to be grouped from the frame (mouthful, I know)
     if (groupingElementsFromDifferentFrames) {

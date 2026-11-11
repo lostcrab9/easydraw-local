@@ -459,11 +459,7 @@ const normalizePointBinding = (
   hoveredElement: EasyDrawBindableElement,
 ) => {
   let gap = binding.gap;
-  const maxGap = maxBindingGap(
-    hoveredElement,
-    hoveredElement.width,
-    hoveredElement.height,
-  );
+  const maxGap = maxBindingGap();
 
   if (gap > maxGap) {
     gap = BINDING_HIGHLIGHT_THICKNESS + BINDING_HIGHLIGHT_OFFSET;
@@ -568,6 +564,14 @@ const unbindLinearElement = (
   return binding.elementId;
 };
 
+/**
+ * The element an arrow end binds to. EasyDraw binds only near an outline,
+ * inside or outside it (see `maxBindingGap`): an end dropped deep inside a
+ * shape stays free. A filled shape still hides the outlines beneath it, so an
+ * end inside it never binds to a covered element.
+ *
+ * `_fullShape` is ignored; it used to bind anywhere inside a shape.
+ */
 export const getHoveredElementForBinding = (
   pointerCoords: {
     x: number;
@@ -576,28 +580,25 @@ export const getHoveredElementForBinding = (
   elements: readonly NonDeletedEasyDrawElement[],
   elementsMap: NonDeletedSceneElementsMap,
   zoom?: AppState["zoom"],
-  fullShape?: boolean,
+  _fullShape?: boolean,
   considerAllElements?: boolean,
 ): NonDeleted<EasyDrawBindableElement> | null => {
+  const isAtPosition = (element: NonDeletedEasyDrawElement) =>
+    isBindableElement(element, false) &&
+    bindingBorderTest(element, pointerCoords, elementsMap, zoom);
+  const point = pointFrom<GlobalPoint>(pointerCoords.x, pointerCoords.y);
+  const hidesBelow = (element: NonDeletedEasyDrawElement) =>
+    isBindableElement(element, false) &&
+    !isFrameLikeElement(element) &&
+    !isBindingFallthroughEnabled(element) &&
+    pointInsideBounds(point, aabbForElement(element));
+
   if (considerAllElements) {
     let cullRest = false;
     const candidateElements = getAllElementsAtPositionForBinding(
       elements,
-      (element) =>
-        isBindableElement(element, false) &&
-        bindingBorderTest(
-          element,
-          pointerCoords,
-          elementsMap,
-          zoom,
-          (fullShape ||
-            !isBindingFallthroughEnabled(
-              element as EasyDrawBindableElement,
-            )) &&
-            // disable fullshape snapping for frame elements so we
-            // can bind to frame children
-            !isFrameLikeElement(element),
-        ),
+      isAtPosition,
+      hidesBelow,
     ).filter((element) => {
       if (cullRest) {
         return false;
@@ -608,23 +609,14 @@ export const getHoveredElementForBinding = (
       }
 
       return true;
-    }) as NonDeleted<EasyDrawBindableElement>[] | null;
+    }) as NonDeleted<EasyDrawBindableElement>[];
 
-    // Return early if there are no candidates or just one candidate
-    if (!candidateElements || candidateElements.length === 0) {
+    if (candidateElements.length === 0) {
       return null;
     }
 
     if (candidateElements.length === 1) {
-      return candidateElements[0] as NonDeleted<EasyDrawBindableElement>;
-    }
-
-    // Prefer the shape with the border being tested (if any)
-    const borderTestElements = candidateElements.filter((element) =>
-      bindingBorderTest(element, pointerCoords, elementsMap, zoom, false),
-    );
-    if (borderTestElements.length === 1) {
-      return borderTestElements[0];
+      return candidateElements[0];
     }
 
     // Prefer smaller shapes
@@ -635,28 +627,17 @@ export const getHoveredElementForBinding = (
       .pop() as NonDeleted<EasyDrawBindableElement>;
   }
 
-  const hoveredElement = getElementAtPositionForBinding(
+  return getElementAtPositionForBinding(
     elements,
-    (element) =>
-      isBindableElement(element, false) &&
-      bindingBorderTest(
-        element,
-        pointerCoords,
-        elementsMap,
-        zoom,
-        // disable fullshape snapping for frame elements so we
-        // can bind to frame children
-        (fullShape || !isBindingFallthroughEnabled(element)) &&
-          !isFrameLikeElement(element),
-      ),
-  );
-
-  return hoveredElement as NonDeleted<EasyDrawBindableElement> | null;
+    isAtPosition,
+    hidesBelow,
+  ) as NonDeleted<EasyDrawBindableElement> | null;
 };
 
 const getElementAtPositionForBinding = (
   elements: readonly NonDeletedEasyDrawElement[],
   isAtPositionFn: (element: NonDeletedEasyDrawElement) => boolean,
+  hidesBelowFn: (element: NonDeletedEasyDrawElement) => boolean,
 ) => {
   let frameHit = null;
   // We need to to hit testing from front (end of the array) to back (beginning of the array)
@@ -674,6 +655,8 @@ const getElementAtPositionForBinding = (
         return element;
       }
       frameHit ??= element;
+    } else if (hidesBelowFn(element)) {
+      break;
     }
   }
 
@@ -683,6 +666,7 @@ const getElementAtPositionForBinding = (
 const getAllElementsAtPositionForBinding = (
   elements: readonly NonDeletedEasyDrawElement[],
   isAtPositionFn: (element: NonDeletedEasyDrawElement) => boolean,
+  hidesBelowFn: (element: NonDeletedEasyDrawElement) => boolean,
 ) => {
   const elementsAtPosition: NonDeletedEasyDrawElement[] = [];
   // We need to to hit testing from front (end of the array) to back (beginning of the array)
@@ -696,6 +680,8 @@ const getAllElementsAtPositionForBinding = (
 
     if (isAtPositionFn(element)) {
       elementsAtPosition.push(element);
+    } else if (hidesBelowFn(element)) {
+      break;
     }
   }
 
@@ -915,12 +901,7 @@ const getDistanceForBinding = (
   zoom?: AppState["zoom"],
 ) => {
   const distance = distanceToBindableElement(bindableElement, point);
-  const bindDistance = maxBindingGap(
-    bindableElement,
-    bindableElement.width,
-    bindableElement.height,
-    zoom,
-  );
+  const bindDistance = maxBindingGap(zoom);
 
   return distance > bindDistance ? null : distance;
 };
@@ -1376,7 +1357,7 @@ const maybeCalculateNewGapWhenScaling = (
   const newGap = Math.max(
     1,
     Math.min(
-      maxBindingGap(changedElement, newWidth, newHeight),
+      maxBindingGap(),
       currentBinding.gap *
         (newWidth < newHeight ? newWidth / width : newHeight / height),
     ),
@@ -1557,43 +1538,25 @@ const newBoundElements = (
   return nextBoundElements;
 };
 
+/** Whether a point is within the binding band around the element's outline, inside or outside. */
 export const bindingBorderTest = (
   element: NonDeleted<EasyDrawBindableElement>,
   { x, y }: { x: number; y: number },
   elementsMap: NonDeletedSceneElementsMap,
   zoom?: AppState["zoom"],
-  fullShape?: boolean,
 ): boolean => {
-  const threshold = maxBindingGap(element, element.width, element.height, zoom);
+  const threshold = maxBindingGap(zoom);
 
   const shape = getElementShape(element, elementsMap);
-  return (
-    isPointOnShape(pointFrom(x, y), shape, threshold) ||
-    (fullShape === true &&
-      pointInsideBounds(pointFrom(x, y), aabbForElement(element)))
-  );
+  return isPointOnShape(pointFrom(x, y), shape, threshold);
 };
 
-export const maxBindingGap = (
-  element: EasyDrawElement,
-  elementWidth: number,
-  elementHeight: number,
-  zoom?: AppState["zoom"],
-): number => {
-  const zoomValue = zoom?.value && zoom.value < 1 ? zoom.value : 1;
+/** Arrow ends bind within this many screen pixels of an outline, inside or outside. */
+export const BINDING_BAND = 8;
 
-  // Aligns diamonds with rectangles
-  const shapeRatio = element.type === "diamond" ? 1 / Math.sqrt(2) : 1;
-  const smallerDimension = shapeRatio * Math.min(elementWidth, elementHeight);
-
-  return Math.max(
-    16,
-    // bigger bindable boundary for bigger elements
-    Math.min(0.25 * smallerDimension, 32),
-    // keep in sync with the zoomed highlight
-    BINDING_HIGHLIGHT_THICKNESS / zoomValue + BINDING_HIGHLIGHT_OFFSET,
-  );
-};
+/** The binding band in scene units: the same on-screen distance at any zoom. */
+export const maxBindingGap = (zoom?: AppState["zoom"]): number =>
+  BINDING_BAND / (zoom?.value || 1);
 
 // The focus distance is the oriented ratio between the size of
 // the `element` and the "focus image" of the element on which

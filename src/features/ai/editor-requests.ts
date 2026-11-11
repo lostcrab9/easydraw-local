@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FONT_FAMILY, NativeProjectDocumentSchema } from "@easydraw/document-model";
+import { FONT_FAMILY, getNotePlainText, NativeProjectDocumentSchema } from "@easydraw/document-model";
 import { CaptureUpdateAction } from "@easydraw/canvas-engine";
 import { CANVAS_TOOL_SCHEMAS, CanvasElementTypeSchema, CanvasOperationSchema, CanvasElementCreateSchema,
   type CanvasMethod, type ProjectDocument } from "../../core/protocol";
@@ -68,7 +68,7 @@ export function createEditorRequestHandler(ports: EditorRequestPorts) {
       fonts: FONT_FAMILY, assetSources: ["document", "builtin"], exportFormats: ["png", "svg"],
       coordinates: { unit: "canvas", angle: "radians", opacity: "0–100", frameLocalRequiresUnrotated: true },
       limits: { operations: 500, queryPage: 200, retainedChanges: 100, idempotentRequestsPerSession: 512, outputPixels: 16_000_000, outputEdge: 8192, importBase64BytesPerAsset: 8 * 1024 * 1024 },
-      features: { multiCanvas: true, projectFolders: false, explicitCanvasId: true, editingTarget: "active-canvas", editTasks: "required-for-writes", freeCanvas: true, autoFrameHeight: "grow-only", nestedFrames: false, hiddenElements: false, arbitraryHistoryRollback: false, connectorFrameMembership: false, iconSelection: "english-description-vector-top1", vectorColorMode: "tint", svgImagePreservesColors: true },
+      features: { multiCanvas: true, projectFolders: false, explicitCanvasId: true, editingTarget: "active-canvas", editTasks: "required-for-writes", freeCanvas: true, autoFrameHeight: "grow-only", nestedFrames: false, hiddenElements: false, arbitraryHistoryRollback: false, connectorFrameMembership: "derived-from-both-ends", stickyNotes: "canvas-level-ungrouped", iconSelection: "english-description-vector-top1", vectorColorMode: "tint", svgImagePreservesColors: true },
     };
     if (method === "get_status") return { app: "EasyDraw", documentId: document.projectId, canvasId: document.activeCanvasId, canvasName: document.tree.find(n => n.id === document.activeCanvasId)?.name ?? null, canvasCount: Object.keys(document.canvases).length, revision: document.revision,
       ready: ports.isReady() && Boolean(ports.getApi()), saveState: ports.getSaveState?.() ?? "unknown", elementCount: document.scene.elements.length,
@@ -92,7 +92,7 @@ export function createEditorRequestHandler(ports: EditorRequestPorts) {
     if (method === "query_elements") {
       const matches = scopeElements(document, input.scope).filter(e => (!input.ids || input.ids.includes(e.id)) && (!input.types || input.types.includes(e.type))
         && (!input.groupIds || input.groupIds.some((g: string) => e.groupIds.includes(g))) && (input.locked === undefined || input.locked === e.locked)
-        && (!input.textQuery || [e.id, e.altText, "text" in e ? e.text : "", "name" in e ? e.name : ""].join(" ").toLowerCase().includes(input.textQuery.toLowerCase()))
+        && (!input.textQuery || [e.id, e.altText, "text" in e ? e.text : "", e.type === "note" ? getNotePlainText(e.content) : "", "name" in e ? e.name : ""].join(" ").toLowerCase().includes(input.textQuery.toLowerCase()))
         && (!input.metadata || JSON.stringify(e.customData?.[input.metadata.key]) === JSON.stringify(input.metadata.value)));
       const page = matches.slice(input.offset, input.offset + input.limit);
       return { ...envelope(), total: matches.length, offset: input.offset, nextOffset: input.offset + input.limit < matches.length ? input.offset + input.limit : null,

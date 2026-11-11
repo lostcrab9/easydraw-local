@@ -271,6 +271,7 @@ const renderBindingHighlightForBindableElement = (
     case "embeddable":
     case "frame":
     case "magicframe":
+    case "note":
       strokeRectWithRotation(
         context,
         x1 - padding,
@@ -318,12 +319,7 @@ const renderBindingHighlightForSuggestedPointBinding = (
 ) => {
   const [element, startOrEnd, bindableElement] = suggestedBinding;
 
-  const threshold = maxBindingGap(
-    bindableElement,
-    bindableElement.width,
-    bindableElement.height,
-    zoom,
-  );
+  const threshold = maxBindingGap(zoom);
 
   context.strokeStyle = "rgba(0,0,0,0)";
   context.fillStyle = "rgba(0,0,0,.05)";

@@ -6,6 +6,8 @@ import {
   getFontFamilyFallbacks,
 } from "../constants";
 import { isTextElement } from "../element";
+import { isNoteElement } from "../element/typeChecks";
+import { getNotePlainText } from "@easydraw/document-model";
 import { getContainerElement } from "../element/textElement";
 import { containsCJK } from "../element/textWrapping";
 import { ShapeCache } from "../scene/ShapeCache";
@@ -116,14 +118,16 @@ export class Fonts {
     const elementsMap = this.scene.getNonDeletedElementsMap();
 
     for (const element of this.scene.getNonDeletedElements()) {
-      if (isTextElement(element)) {
+      if (isTextElement(element) || isNoteElement(element)) {
         didUpdate = true;
         ShapeCache.delete(element);
 
         // clear the width cache, so that we don't perform subsequent wrapping based on the stale fallback font metrics
         charWidth.clearCache(getFontString(element));
 
-        const container = getContainerElement(element, elementsMap);
+        const container = isTextElement(element)
+          ? getContainerElement(element, elementsMap)
+          : null;
         if (container) {
           ShapeCache.delete(container);
         }
@@ -400,7 +404,7 @@ export class Fonts {
   ): Array<EasyDrawTextElement["fontFamily"]> {
     return Array.from(
       elements.reduce((families, element) => {
-        if (isTextElement(element)) {
+        if (isTextElement(element) || isNoteElement(element)) {
           families.add(element.fontFamily);
         }
         return families;
@@ -417,12 +421,15 @@ export class Fonts {
     const charsPerFamily: Record<number, Set<string>> = {};
 
     for (const element of elements) {
-      if (!isTextElement(element)) {
+      if (!isTextElement(element) && !isNoteElement(element)) {
         continue;
       }
 
+      const text = isNoteElement(element)
+        ? getNotePlainText(element.content)
+        : element.originalText;
       // gather unique codepoints only when inlining fonts
-      for (const char of element.originalText) {
+      for (const char of text) {
         if (!charsPerFamily[element.fontFamily]) {
           charsPerFamily[element.fontFamily] = new Set();
         }

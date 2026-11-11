@@ -25,6 +25,7 @@ import {
   FreedrawIcon,
   ImageIcon,
   LineIcon,
+  NoteIcon,
   RectangleIcon,
   SelectionIcon,
   TextIcon,
@@ -109,6 +110,13 @@ export const SHAPES = [
     fillable: false,
   },
   {
+    icon: NoteIcon,
+    value: "note",
+    key: KEYS.N,
+    numericKey: undefined,
+    fillable: false,
+  },
+  {
     icon: ImageIcon,
     value: "image",
     key: null,
@@ -154,6 +162,7 @@ export const getElementShape = <Point extends GlobalPoint | LocalPoint>(
     case "image":
     case "iframe":
     case "text":
+    case "note":
     case "selection":
       return getPolygonShape(element);
     case "arrow":

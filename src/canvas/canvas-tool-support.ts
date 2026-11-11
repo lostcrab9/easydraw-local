@@ -8,6 +8,7 @@ const supportedCanvasTools = new Set([
   "arrow",
   "line",
   "text",
+  "note",
   "freedraw",
   "eraser",
   "laser",

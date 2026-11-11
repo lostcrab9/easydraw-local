@@ -71,13 +71,16 @@ import {
   isTextElement,
   redrawTextBoundingBox,
 } from "../element";
+import { withArrowType } from "../element/arrowType";
 import { mutateElement, newElementWith } from "../element/mutateElement";
 import { getBoundTextElement } from "../element/textElement";
+import { withNoteAutoHeight } from "../renderer/note";
 import {
   isArrowElement,
   isBoundToContainer,
   isElbowArrow,
   isLinearElement,
+  isNoteElement,
   isUsingAdaptiveRadius,
 } from "../element/typeChecks";
 import type {
@@ -208,7 +211,7 @@ const changeFontSize = (
   elements: readonly EasyDrawElement[],
   appState: AppState,
   app: AppClassProperties,
-  getNewFontSize: (element: EasyDrawTextElement) => number,
+  getNewFontSize: (element: { fontSize: number }) => number,
   fallbackValue?: EasyDrawTextElement["fontSize"],
 ) => {
   const newFontSizes = new Set<number>();
@@ -217,6 +220,11 @@ const changeFontSize = (
     elements,
     appState,
     (oldElement) => {
+      if (isNoteElement(oldElement)) {
+        const fontSize = getNewFontSize(oldElement);
+        newFontSizes.add(fontSize);
+        return withNoteAutoHeight(newElementWith(oldElement, { fontSize }));
+      }
       if (isTextElement(oldElement)) {
         const newFontSize = getNewFontSize(oldElement);
         newFontSizes.add(newFontSize);
@@ -637,7 +645,7 @@ const FontSizePanel = ({ elements, appState, updateData, app }: PanelComponentPr
     elements,
     appState,
     (element) => {
-      if (isTextElement(element)) {
+      if (isTextElement(element) || isNoteElement(element)) {
         return element.fontSize;
       }
       return getBoundTextElement(
@@ -647,6 +655,7 @@ const FontSizePanel = ({ elements, appState, updateData, app }: PanelComponentPr
     },
     (element) =>
       isTextElement(element) ||
+      isNoteElement(element) ||
       getBoundTextElement(
         element,
         app.scene.getNonDeletedElementsMap(),
@@ -1165,6 +1174,9 @@ export const actionChangeTextAlign = register({
         elements,
         appState,
         (oldElement) => {
+          if (isNoteElement(oldElement)) {
+            return newElementWith(oldElement, { textAlign: value });
+          }
           if (isTextElement(oldElement)) {
             const newElement: EasyDrawTextElement = newElementWith(
               oldElement,
@@ -1220,7 +1232,7 @@ export const actionChangeTextAlign = register({
             elements,
             appState,
             (element) => {
-              if (isTextElement(element)) {
+              if (isTextElement(element) || isNoteElement(element)) {
                 return element.textAlign;
               }
               const boundTextElement = getBoundTextElement(
@@ -1234,6 +1246,7 @@ export const actionChangeTextAlign = register({
             },
             (element) =>
               isTextElement(element) ||
+              isNoteElement(element) ||
               getBoundTextElement(element, elementsMap) !== null,
             (hasSelection) =>
               hasSelection ? null : appState.currentItemTextAlign,
@@ -1578,19 +1591,7 @@ export const actionChangeArrowType = register({
       if (!isArrowElement(el)) {
         return el;
       }
-      const newElement = newElementWith(el, {
-        roundness:
-          value === ARROW_TYPE.round
-            ? {
-                type: ROUNDNESS.PROPORTIONAL_RADIUS,
-              }
-            : null,
-        elbowed: value === ARROW_TYPE.elbow,
-        points:
-          value === ARROW_TYPE.elbow || el.elbowed
-            ? [el.points[0], el.points[el.points.length - 1]]
-            : el.points,
-      });
+      const newElement = withArrowType(el, value);
 
       if (isElbowArrow(newElement)) {
         const elementsMap = app.scene.getNonDeletedElementsMap();

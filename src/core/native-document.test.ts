@@ -59,7 +59,7 @@ describe("owned native document rules", () => {
     expect(elements[0].index).toBeNull();
   });
 
-  it("keeps connectors and their labels canvas-scoped while lines stay page-scoped", () => {
+  it("derives connector pages from both ends; labels follow and lines keep their page", () => {
     const page = native("page", "frame");
     const connector = createNativeElement({
       id: "connector", type: "arrow", x: 0, y: 0, width: 100, height: 20,
@@ -74,11 +74,28 @@ describe("owned native document rules", () => {
       frameId: page.id,
     });
 
-    const ordered = normalizeSceneElements([page, connector, label, line]);
+    const frameOf = (elements: readonly { id: string; frameId: string | null }[], id: string) =>
+      elements.find((element) => element.id === id)?.frameId;
 
-    expect(ordered.find((element) => element.id === connector.id)?.frameId).toBeNull();
-    expect(ordered.find((element) => element.id === label.id)?.frameId).toBeNull();
-    expect(ordered.find((element) => element.id === line.id)?.frameId).toBe(page.id);
+    // Both ends inside the page: the connector and its label join the page.
+    const inside = normalizeSceneElements([page, { ...connector, frameId: null }, { ...label, frameId: null }, line]);
+    expect(frameOf(inside, connector.id)).toBe(page.id);
+    expect(frameOf(inside, label.id)).toBe(page.id);
+    expect(frameOf(inside, line.id)).toBe(page.id);
+
+    // One end outside: the connector stays on the canvas even if it claimed the page.
+    const leaving = { ...connector, points: [[0, 0], [400, 20]] as typeof connector.points, width: 400 };
+    const outside = normalizeSceneElements([page, leaving, label, line]);
+    expect(frameOf(outside, connector.id)).toBeNull();
+    expect(frameOf(outside, label.id)).toBeNull();
+
+    // Bound ends follow the bound element's page, not the point.
+    const other = native("other", "frame", { x: 1000 });
+    const target = native("target", "rectangle", { x: 1050, width: 50, height: 50, frameId: other.id });
+    const toOther = { ...connector, frameId: null, endBinding: { elementId: target.id, focus: 0, gap: 4 } };
+    expect(frameOf(normalizeSceneElements([page, other, target, toOther, label]), connector.id)).toBeNull();
+    const backHome = { ...toOther, endBinding: { elementId: page.id, focus: 0, gap: 4 } };
+    expect(frameOf(normalizeSceneElements([page, other, target, backHome, label]), connector.id)).toBe(page.id);
   });
 
   it("deleting a page removes content even if the gesture detached it first", () => {

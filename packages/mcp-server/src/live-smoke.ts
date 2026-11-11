@@ -140,7 +140,32 @@ try {
     operations: [{ op: "delete", ids: [card, cardText], children: "delete" }] });
   assert.deepEqual(removeMembers.frameHeightChanges, []);
   assert.equal((await call("query_elements", { ...doc, scope, ids: [page], fields: ["height"] })).elements[0].height, 142);
-  process.stdout.write("General MCP live smoke passed: native free elements, atomic vector assets, dryRun, retries, tasks, PNG/SVG, history, bindings, views and automatic frame height.\n");
+  // Arrow page membership is derived from both ends, never from the path.
+  const pageA = `${run}-page-a`, pageB = `${run}-page-b`, pageMid = `${run}-page-mid`, button = `${run}-button`, inner = `${run}-inner-arrow`, jump = `${run}-jump-arrow`;
+  created.push(pageA, pageB, pageMid, button, inner, jump);
+  const flows = await call("apply_operations", { ...doc, baseRevision: removeMembers.revision, requestId: `${run}-flows`, label: "Arrows between and inside pages", operations: [
+    { op: "create", element: { id: pageA, type: "frame", x: 2600, y: 0, width: 300, height: 300 } },
+    { op: "create", element: { id: pageMid, type: "frame", x: 2950, y: 0, width: 100, height: 300 } },
+    { op: "create", element: { id: pageB, type: "frame", x: 3100, y: 0, width: 300, height: 300 } },
+    { op: "create", element: { id: button, type: "rectangle", frameId: pageA, x: 2620, y: 20, width: 100, height: 40, roughness: 0 } },
+    { op: "create", element: { id: inner, type: "arrow", x: 2650, y: 120, width: 200, height: 0, points: [[0, 0], [200, 0]], elbowed: false } },
+    { op: "create", element: { id: jump, type: "arrow", x: 2724, y: 40, width: 372, height: 0, points: [[0, 0], [372, 0]], elbowed: false,
+      startBinding: { elementId: button, focus: 0, gap: 4 }, endBinding: { elementId: pageB, focus: 0, gap: 4 } } },
+  ] });
+  const frames = async () => Object.fromEntries((await call("query_elements", { ...doc, scope, ids: [inner, jump], fields: ["x", "frameId"] })).elements.map((e: any) => [e.id, e]));
+  let arrows = await frames();
+  assert.equal(arrows[inner].frameId, pageA, "Arrow with both ends in a page joins it");
+  assert.equal(arrows[jump].frameId, null, "Arrow across pages stays on the canvas");
+  const pageMove = await call("apply_operations", { ...doc, baseRevision: flows.revision, requestId: `${run}-move-page`, label: "Move page with its arrow", operations: [{ op: "move", ids: [pageA], dx: -100, dy: 0 }] });
+  const movedArrows = await frames();
+  assert.equal(movedArrows[inner].x, arrows[inner].x - 100, "In-page arrow moves with its page");
+  assert.equal(movedArrows[inner].frameId, pageA);
+  assert.equal(movedArrows[jump].frameId, null);
+  const grouped = await call("apply_operations", { ...doc, baseRevision: pageMove.revision, requestId: `${run}-group-jump`, label: "Group member with cross-page arrow", operations: [{ op: "group", ids: [button, jump] }] });
+  assert.equal((await call("query_elements", { ...doc, scope, ids: [button], fields: ["frameId"] })).elements[0].frameId, pageA);
+  const pageGroup = await client.callTool({ name: "apply_operations", arguments: { taskId: "live-edit", ...doc, baseRevision: grouped.revision, requestId: `${run}-group-pages`, label: "Group pages", operations: [{ op: "group", ids: [pageA, pageB] }] } });
+  assert.ok(pageGroup.isError && text(pageGroup).includes("UNSUPPORTED_GROUP"), "Pages cannot be grouped");
+  process.stdout.write("General MCP live smoke passed: native free elements, atomic vector assets, dryRun, retries, tasks, PNG/SVG, history, bindings, views, automatic frame height and arrow page membership.\n");
 } finally {
   if (documentId && created.length) {
     const status = await call("get_status", {});

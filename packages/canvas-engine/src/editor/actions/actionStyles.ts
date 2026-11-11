@@ -51,7 +51,7 @@ export const actionCopyStyles = register({
     return {
       appState: {
         ...appState,
-        toast: { message: t("toast.copyStyles") },
+        toast: { message: t("toast.copyStyles"), tone: "success" as const },
       },
       captureUpdate: CaptureUpdateAction.EVENTUALLY,
     };

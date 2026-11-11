@@ -39,7 +39,7 @@ export const actionCopyElementLink = register({
             appState: {
               toast: {
                 message: t("toast.elementLinkCopied"),
-                closable: true,
+                tone: "success" as const,
               },
             },
             captureUpdate: CaptureUpdateAction.EVENTUALLY,

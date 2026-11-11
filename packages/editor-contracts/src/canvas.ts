@@ -17,7 +17,7 @@ export type CanvasScope = z.infer<typeof CanvasScopeSchema>;
 const projectInput = { documentId: id };
 const documentInput = { ...projectInput, canvasId: id };
 const readInput = { ...documentInput, revision: finite.int().nonnegative().optional() };
-export const CanvasElementTypeSchema = z.enum(["frame", "rectangle", "diamond", "ellipse", "line", "arrow", "text", "image", "freedraw"]);
+export const CanvasElementTypeSchema = z.enum(["frame", "rectangle", "diamond", "ellipse", "line", "arrow", "text", "image", "freedraw", "note"]);
 // MCP clients may reject draft-7 tuple schemas (`items: [schema, schema]`).
 // Keep the runtime tuple type while publishing a homogeneous, fixed-size array.
 const point = z.array(finite).length(2).transform(([x, y]): [number, number] => [x, y]);
@@ -46,6 +46,9 @@ const nativeFields = {
   startArrowhead: z.enum(["arrow", "bar", "dot", "triangle", "diamond", "circle"]).nullable(),
   endArrowhead: z.enum(["arrow", "bar", "dot", "triangle", "diamond", "circle"]).nullable(),
   vectorData: SvgVectorDataSchema, assetId: id, fileId: id.nullable(), altText: z.string().max(500),
+  content: z.object({ format: z.literal("plain"), text: z.string().max(10000) }).strict()
+    .describe("Note only. Sticky-note text; `text` is accepted as a shorthand for plain content."),
+  autoHeight: z.boolean().describe("Note only. true (default): height grows to fit the text. false: fixed height, overflowing text is clipped."),
   crop: z.object({ x: finite, y: finite, width: finite.positive(), height: finite.positive(), naturalWidth: finite.positive(), naturalHeight: finite.positive() }).strict().nullable(),
   customData: z.record(z.string().min(1).max(128), z.unknown()).nullable(), link: z.string().max(2048).nullable(),
 };

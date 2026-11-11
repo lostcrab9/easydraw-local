@@ -21,8 +21,10 @@ import {
   getElementBounds,
 } from "./bounds";
 import type { BoundingBox } from "./bounds";
+import { getNoteAutoHeight } from "../renderer/note";
 import {
   isArrowElement,
+  isNoteElement,
   isBoundToContainer,
   isElbowArrow,
   isFrameLikeElement,
@@ -960,12 +962,26 @@ export const resizeSingleElement = (
     Number.isFinite(newOrigin.x) &&
     Number.isFinite(newOrigin.y)
   ) {
-    const updates = {
+    const updates: Record<string, unknown> = {
       ...newOrigin,
       width: Math.abs(nextWidth),
       height: Math.abs(nextHeight),
       ...rescaledPoints,
     };
+
+    // Notes reflow on width changes. Dragging the height below the text turns
+    // auto height off (the text is clipped); at or above it, auto height stays.
+    if (isNoteElement(origElement)) {
+      const contentHeight = getNoteAutoHeight({
+        ...origElement,
+        width: Math.abs(nextWidth),
+      });
+      if (Math.abs(nextHeight) !== origElement.height) {
+        updates.autoHeight = Math.abs(nextHeight) >= contentHeight;
+      } else if (origElement.autoHeight) {
+        updates.height = Math.max(Math.abs(nextHeight), contentHeight);
+      }
+    }
 
     mutateElement(latestElement, updates, shouldInformMutation);
 

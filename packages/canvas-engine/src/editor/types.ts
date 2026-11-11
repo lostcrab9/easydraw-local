@@ -1,3 +1,4 @@
+import type { ElementDefaults } from "./elementDefaults";
 import type { JSX } from "react";
 import type React from "react";
 import type {
@@ -128,6 +129,7 @@ export type ToolType =
   | "line"
   | "freedraw"
   | "text"
+  | "note"
   | "image"
   | "eraser"
   | "hand"
@@ -235,6 +237,9 @@ export type ObservedElementsAppState = {
   selectedLinearElementId: LinearElementEditor["elementId"] | null;
   croppingElementId: AppState["croppingElementId"];
 };
+
+/** "success" confirms a finished action, "info" explains or warns, "danger" reports a failure. */
+export type ToastTone = "success" | "info" | "danger";
 
 export interface AppState {
   contextMenu: {
@@ -354,7 +359,7 @@ export interface AppState {
   previousSelectedElementIds: { [id: string]: true };
   selectedElementsAreBeingDragged: boolean;
   shouldCacheIgnoreZoom: boolean;
-  toast: { message: string; closable?: boolean; duration?: number } | null;
+  toast: { message: string; closable?: boolean; duration?: number; tone?: ToastTone } | null;
   zenModeEnabled: boolean;
   theme: Theme;
   /** grid cell px size */
@@ -495,6 +500,11 @@ export type OnUserFollowedPayload = {
 };
 
 export interface EasyDrawProps {
+  /**
+   * Styles for newly created elements, per kind. Picking a drawing tool loads
+   * its kind's defaults, so styling one element never changes the next one.
+   */
+  elementDefaults?: ElementDefaults;
   /** When hosted by a document controller, it owns the only undo history. */
   documentHistory?: {
     undo: () => void;

@@ -167,6 +167,16 @@ Every `apply_operations` batch automatically extends affected frames down to the
 }
 ```
 
+Draw a divider or underline as a native line, not a thin rectangle. `points` are relative to `x`/`y`; set `roughness: 0` because lines otherwise use a hand-drawn stroke:
+
+```json
+{ "op": "create", "element": {
+  "type": "line", "frameId": "<frame-id>", "x": 24, "y": 184,
+  "width": 342, "height": 0, "points": [[0, 0], [342, 0]],
+  "strokeColor": "#e3e3e3", "strokeWidth": 1, "roughness": 0
+} }
+```
+
 Select icons directly with a short English description, without an extra search or preview round:
 
 ```json

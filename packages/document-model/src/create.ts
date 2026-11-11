@@ -1,6 +1,7 @@
 import type { EasyDrawElement } from "./elements";
 import { NativeElementSchema } from "./schema";
 import { DEFAULT_ELEMENT_PROPS } from "./style";
+import { NOTE_DEFAULTS } from "./note";
 
 /** Native command input. Text layout must supply its intended width/height. */
 export type NativeElementInput = {
@@ -31,6 +32,12 @@ export function createNativeElement(input: NativeElementInput): EasyDrawElement 
     text: "", originalText: input.text ?? "", fontSize: 20, fontFamily: 6,
     textAlign: "left", verticalAlign: "top", containerId: null,
     autoResize: false, lineHeight: 1.35,
+  });
+  if (input.type === "note") Object.assign(defaults, {
+    content: { format: "plain", text: "" }, fontSize: NOTE_DEFAULTS.fontSize,
+    fontFamily: NOTE_DEFAULTS.fontFamily, textAlign: "left", lineHeight: NOTE_DEFAULTS.lineHeight,
+    autoHeight: true, backgroundColor: NOTE_DEFAULTS.backgroundColor, strokeColor: NOTE_DEFAULTS.textColor,
+    strokeWidth: 0, roughness: 0, roundness: { type: 3, value: NOTE_DEFAULTS.radius },
   });
   if (input.type === "image") Object.assign(defaults, {
     fileId: null, status: "pending", scale: [1, 1], crop: null,

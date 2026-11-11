@@ -20,6 +20,14 @@ Draw by hand or connect an AI agent through MCP—your projects stay in local fi
 
 No account, cloud sharing, hosted viewer, sync service, or EasyDraw backend is included.
 
+## v0.3.8 update
+
+Includes local features from EasyDraw commit `5558aae`: sticky notes (including MCP creation and editing), per-element defaults saved on this device, improved arrow frame membership and endpoint snapping, and unified notifications.
+
+**Projects containing sticky notes require version 0.3.8 or later.** Existing arrows with both ends in one frame join that frame; cross-frame arrows stay on the canvas. Preferences stay on this device and are not stored in projects. Back up `.edw` files before upgrading.
+
+Website, account, cloud sharing, Viewer, and backend changes are excluded.
+
 ## v0.3.7 update
 
 Includes local changes from [EasyDraw v0.3.7](https://github.com/lostcrab9/EasyDraw/releases/tag/v0.3.7)

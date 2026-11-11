@@ -7,4 +7,5 @@ export * from "./create";
 export * from "./assets";
 export * from "./document";
 export * from "./scene";
+export * from "./note";
 export { SvgVectorDataSchema, SvgVectorPathSchema } from "./vector";

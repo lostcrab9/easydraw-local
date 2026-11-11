@@ -176,6 +176,29 @@ export type EasyDrawMagicFrameElement = _EasyDrawElementBase & {
   name: string | null;
 };
 
+/**
+ * Sticky note content. `format` discriminates future rich text; plain text is
+ * the only stored format for now. Derive plain text with `getNotePlainText`.
+ */
+export type NoteContent = { format: "plain"; text: string };
+
+/**
+ * A sticky note for annotating prototypes. Notes live on the canvas (never in a
+ * page or a group), render above all content and own their text: there is no
+ * bound text element.
+ */
+export type EasyDrawNoteElement = _EasyDrawElementBase &
+  Readonly<{
+    type: "note";
+    content: NoteContent;
+    fontSize: number;
+    fontFamily: FontFamilyValues;
+    textAlign: TextAlign;
+    lineHeight: number & { _brand: "unitlessLineHeight" };
+    /** true: height follows the content. false: the user fixed the height. */
+    autoHeight: boolean;
+  }>;
+
 export type EasyDrawFrameLikeElement =
   | EasyDrawFrameElement
   | EasyDrawMagicFrameElement;
@@ -201,7 +224,8 @@ export type EasyDrawRectanguloidElement =
   | EasyDrawFreeDrawElement
   | EasyDrawIframeLikeElement
   | EasyDrawFrameLikeElement
-  | EasyDrawEmbeddableElement;
+  | EasyDrawEmbeddableElement
+  | EasyDrawNoteElement;
 
 /**
  * EasyDrawElement should be JSON serializable and (eventually) contain
@@ -218,7 +242,8 @@ export type EasyDrawElement =
   | EasyDrawFrameElement
   | EasyDrawMagicFrameElement
   | EasyDrawIframeElement
-  | EasyDrawEmbeddableElement;
+  | EasyDrawEmbeddableElement
+  | EasyDrawNoteElement;
 
 export type EasyDrawNonSelectionElement = Exclude<
   EasyDrawElement,
@@ -270,7 +295,8 @@ export type EasyDrawBindableElement =
   | EasyDrawIframeElement
   | EasyDrawEmbeddableElement
   | EasyDrawFrameElement
-  | EasyDrawMagicFrameElement;
+  | EasyDrawMagicFrameElement
+  | EasyDrawNoteElement;
 
 export type EasyDrawTextContainer =
   | EasyDrawRectangleElement

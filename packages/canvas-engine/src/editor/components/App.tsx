@@ -145,7 +145,17 @@ import {
   newMagicFrameElement,
   newIframeElement,
   newArrowElement,
+  newNoteElement,
 } from "../element/newElement";
+import { openNoteEditor } from "../element/noteEditor";
+import {
+  DEFAULT_ELEMENT_DEFAULTS,
+  getTextStyleState,
+  getToolStyleState,
+  type ElementDefaults,
+} from "../elementDefaults";
+import { getNoteAutoHeight } from "../renderer/note";
+import { NOTE_DEFAULTS } from "@easydraw/document-model";
 import {
   hasBoundTextElement,
   isArrowElement,
@@ -166,9 +176,11 @@ import {
   isElbowArrow,
   isFlowchartNodeElement,
   isBindableElement,
+  isNoteElement,
 } from "../element/typeChecks";
 import type {
   EasyDrawBindableElement,
+  EasyDrawNoteElement,
   EasyDrawElement,
   EasyDrawFreeDrawElement,
   EasyDrawGenericElement,
@@ -1736,6 +1748,7 @@ class App extends React.Component<AppProps, AppState> {
                             onClose={() => this.setToast(null)}
                             duration={this.state.toast.duration}
                             closable={this.state.toast.closable}
+                            tone={this.state.toast.tone}
                           />
                         )}
                         {this.state.contextMenu && (
@@ -1785,7 +1798,8 @@ class App extends React.Component<AppProps, AppState> {
                           visibleElements={visibleElements.filter(
                             (element) =>
                               isArrowElement(element) ||
-                              isFrameLikeElement(element),
+                              isFrameLikeElement(element) ||
+                              isNoteElement(element),
                           )}
                           scale={window.devicePixelRatio}
                           appState={this.state}
@@ -2063,7 +2077,8 @@ class App extends React.Component<AppProps, AppState> {
     if (element.customData?.generationData?.status === "done") {
       copyTextToSystemClipboard(element.customData.generationData.html);
       this.setToast({
-        message: "copied to clipboard",
+        message: t("toast.copyToClipboard"),
+        tone: "success",
         closable: false,
         duration: 1500,
       });
@@ -3878,13 +3893,7 @@ class App extends React.Component<AppProps, AppState> {
     this.setState(state);
   };
 
-  setToast = (
-    toast: {
-      message: string;
-      closable?: boolean;
-      duration?: number;
-    } | null,
-  ) => {
+  setToast = (toast: AppState["toast"]) => {
     this.setState({ toast });
   };
 
@@ -4508,6 +4517,10 @@ class App extends React.Component<AppProps, AppState> {
                 }
               }
             }
+          } else if (isNoteElement(selectedElement)) {
+            event.preventDefault();
+            this.startNoteEditing(selectedElement);
+            return;
           } else if (
             isTextElement(selectedElement) ||
             isValidTextContainer(selectedElement)
@@ -4826,9 +4839,17 @@ class App extends React.Component<AppProps, AppState> {
         this.store.shouldCaptureIncrement();
       }
 
+      // Picking another drawing tool loads that kind's preferred style;
+      // re-picking the same tool keeps tweaks (e.g. cycling arrow types).
+      const toolStyle =
+        prevState.activeTool.type !== nextActiveTool.type
+          ? getToolStyleState(nextActiveTool.type, this.getElementDefaults())
+          : {};
+
       if (nextActiveTool.type !== "selection") {
         return {
           ...prevState,
+          ...toolStyle,
           activeTool: nextActiveTool,
           selectedElementIds: makeNextSelectedElementIds({}, prevState),
           selectedGroupIds: makeNextSelectedElementIds({}, prevState),
@@ -5144,6 +5165,7 @@ class App extends React.Component<AppProps, AppState> {
     const iframeLikes: Ordered<EasyDrawIframeElement>[] = [];
     const connectors: Ordered<NonDeletedEasyDrawElement>[] = [];
     const frameLikes: Ordered<NonDeletedEasyDrawElement>[] = [];
+    const notes: Ordered<NonDeletedEasyDrawElement>[] = [];
 
     const elementsMap = this.scene.getNonDeletedElementsMap();
 
@@ -5181,13 +5203,17 @@ class App extends React.Component<AppProps, AppState> {
           connectors.push(el);
           return false;
         }
+        if (isNoteElement(el)) {
+          notes.push(el);
+          return false;
+        }
         if (isIframeElement(el)) {
           iframeLikes.push(el);
           return false;
         }
         return true;
       })
-      .concat(iframeLikes, frameLikes, connectors) as NonDeleted<EasyDrawElement>[];
+      .concat(iframeLikes, frameLikes, connectors, notes) as NonDeleted<EasyDrawElement>[];
 
     return elements;
   }
@@ -5339,12 +5365,24 @@ class App extends React.Component<AppProps, AppState> {
       existingTextElement = this.getTextElementAtPosition(sceneX, sceneY);
     }
 
+    // The text tool carries its (possibly tweaked) current style; text made
+    // any other way (double-click, Enter on a shape) starts from the text
+    // preferences instead of whatever another tool last used.
+    const textStyle =
+      this.state.activeTool.type === "text"
+        ? this.state
+        : {
+            ...this.state,
+            ...getTextStyleState(this.getElementDefaults()),
+            currentItemOpacity: 100,
+          };
+
     const fontFamily =
-      existingTextElement?.fontFamily || this.state.currentItemFontFamily;
+      existingTextElement?.fontFamily || textStyle.currentItemFontFamily;
 
     const lineHeight =
       existingTextElement?.lineHeight || getLineHeight(fontFamily);
-    const fontSize = this.state.currentItemFontSize;
+    const fontSize = textStyle.currentItemFontSize;
 
     if (
       !existingTextElement &&
@@ -5390,19 +5428,19 @@ class App extends React.Component<AppProps, AppState> {
           y: parentCenterPosition
             ? parentCenterPosition.elementCenterY
             : sceneY,
-          strokeColor: this.state.currentItemStrokeColor,
-          backgroundColor: this.state.currentItemBackgroundColor,
-          fillStyle: this.state.currentItemFillStyle,
-          strokeWidth: this.state.currentItemStrokeWidth,
-          strokeStyle: this.state.currentItemStrokeStyle,
-          roughness: this.state.currentItemRoughness,
-          opacity: this.state.currentItemOpacity,
+          strokeColor: textStyle.currentItemStrokeColor,
+          backgroundColor: textStyle.currentItemBackgroundColor,
+          fillStyle: textStyle.currentItemFillStyle,
+          strokeWidth: textStyle.currentItemStrokeWidth,
+          strokeStyle: textStyle.currentItemStrokeStyle,
+          roughness: textStyle.currentItemRoughness,
+          opacity: textStyle.currentItemOpacity,
           text: "",
           fontSize,
           fontFamily,
           textAlign: parentCenterPosition
             ? "center"
-            : this.state.currentItemTextAlign,
+            : textStyle.currentItemTextAlign,
           verticalAlign: parentCenterPosition
             ? VERTICAL_ALIGN.MIDDLE
             : DEFAULT_VERTICAL_ALIGN,
@@ -5556,6 +5594,12 @@ class App extends React.Component<AppProps, AppState> {
 
     if (selectedElements.length === 1 && isImageElement(selectedElements[0])) {
       this.startImageCropping(selectedElements[0]);
+      return;
+    }
+
+    const hitNote = this.getElementAtPosition(sceneX, sceneY);
+    if (isNoteElement(hitNote)) {
+      this.startNoteEditing(hitNote);
       return;
     }
 
@@ -6731,6 +6775,8 @@ class App extends React.Component<AppProps, AppState> {
       );
     } else if (this.state.activeTool.type === "custom") {
       setCursorForShape(this.interactiveCanvas, this.state);
+    } else if (this.state.activeTool.type === "note") {
+      this.createNoteElementOnPointerDown(pointerDownState);
     } else if (
       this.state.activeTool.type === TOOL_TYPE.frame ||
       this.state.activeTool.type === TOOL_TYPE.magicframe
@@ -7998,6 +8044,141 @@ class App extends React.Component<AppProps, AppState> {
     }
   };
 
+  private createNoteElementOnPointerDown = (
+    pointerDownState: PointerDownState,
+  ): void => {
+    const [gridX, gridY] = getGridPoint(
+      pointerDownState.origin.x,
+      pointerDownState.origin.y,
+      this.lastPointerDownEvent?.[KEYS.CTRL_OR_CMD]
+        ? null
+        : this.getEffectiveGridSize(),
+    );
+    // Notes always live on the canvas, even when created over a page.
+    const noteStyle = this.getElementDefaults().note;
+    const note = newNoteElement({
+      x: gridX,
+      y: gridY,
+      opacity: this.state.currentItemOpacity,
+      locked: false,
+      backgroundColor: noteStyle.backgroundColor,
+      fontSize: noteStyle.fontSize,
+      textAlign: noteStyle.textAlign,
+    });
+    this.scene.insertElement(note);
+    this.setState({
+      multiElement: null,
+      newElement: note,
+    });
+  };
+
+  /**
+   * A click (or a drag too small to read) places a default-sized note; a drag
+   * sets width and height.
+   */
+  private finalizeNewNote(note: EasyDrawNoteElement) {
+    if (Math.abs(note.width) < 24 || Math.abs(note.height) < 24) {
+      mutateElement(note, {
+        width: NOTE_DEFAULTS.width,
+        height: NOTE_DEFAULTS.height,
+      });
+    } else {
+      mutateElement(note, getNormalizedDimensions(note));
+    }
+    this.resetCursor();
+    if (!this.state.activeTool.locked) {
+      resetCursor(this.interactiveCanvas);
+    }
+    // One state update hands the gesture over from creation to editing, so the
+    // host commits creation and the first text as a single change.
+    this.setState((prevState) => ({
+      newElement: null,
+      multiElement: null,
+      suggestedBindings: [],
+      activeTool: prevState.activeTool.locked
+        ? prevState.activeTool
+        : updateActiveTool(prevState, { type: "selection" }),
+      selectedElementIds: makeNextSelectedElementIds(
+        { [note.id]: true },
+        prevState,
+      ),
+      selectedGroupIds: {},
+      editingGroupId: null,
+      editingTextElement: note,
+    }));
+    this.openNoteEditor(note);
+  }
+
+  private getElementDefaults(): ElementDefaults {
+    return this.props.elementDefaults ?? DEFAULT_ELEMENT_DEFAULTS;
+  }
+
+  /** Opens the note editor on an existing note (double-click, Enter). */
+  public startNoteEditing(note: EasyDrawNoteElement) {
+    if (note.locked || this.state.editingTextElement) {
+      return;
+    }
+    this.setState((prevState) => ({
+      selectedElementIds: makeNextSelectedElementIds(
+        { [note.id]: true },
+        prevState,
+      ),
+      selectedGroupIds: {},
+      editingGroupId: null,
+      editingTextElement: note,
+    }));
+    this.openNoteEditor(note);
+  }
+
+  private openNoteEditor(note: EasyDrawNoteElement) {
+    // Auto-height notes grow to fit their text and never shrink below the
+    // height they had when editing started.
+    const startHeight = note.height;
+    const applyText = (text: string) => {
+      const current = this.scene.getElement(note.id);
+      if (!isNoteElement(current)) {
+        return;
+      }
+      const height = current.autoHeight
+        ? Math.max(startHeight, getNoteAutoHeight(current, text))
+        : current.height;
+      mutateElement(current, {
+        content: { format: "plain", text },
+        height,
+      });
+      updateBoundElements(current, this.scene.getNonDeletedElementsMap());
+    };
+    openNoteEditor({
+      app: this,
+      element: note,
+      canvas: this.canvas,
+      canvasContainer: this.canvasContainerRef.current,
+      getViewportCoords: (x, y) => {
+        const { x: viewportX, y: viewportY } = sceneCoordsToViewportCoords(
+          { sceneX: x, sceneY: y },
+          this.state,
+        );
+        return [
+          viewportX - this.state.offsetLeft,
+          viewportY - this.state.offsetTop,
+        ];
+      },
+      onChange: withBatchedUpdates((text: string) => applyText(text)),
+      onSubmit: withBatchedUpdates((text: string) => {
+        applyText(text);
+        // A note stays even if it was left empty.
+        this.store.shouldCaptureIncrement();
+        flushSync(() => {
+          this.setState({ newElement: null, editingTextElement: null });
+        });
+        if (this.state.activeTool.locked) {
+          setCursorForShape(this.interactiveCanvas, this.state);
+        }
+        this.focusContainer();
+      }),
+    });
+  }
+
   private createFrameElementOnPointerDown = (
     pointerDownState: PointerDownState,
     type: Extract<ToolType, "frame" | "magicframe">,
@@ -8017,11 +8198,18 @@ class App extends React.Component<AppProps, AppState> {
       locked: false,
       ...FRAME_STYLE,
     } as const;
+    const pageStyle = this.getElementDefaults().frame;
 
     const frame =
       type === TOOL_TYPE.magicframe
         ? newMagicFrameElement(constructorOpts)
-        : newFrameElement(constructorOpts);
+        : newFrameElement({
+            ...constructorOpts,
+            backgroundColor: pageStyle.backgroundColor,
+            roundness: pageStyle.rounded
+              ? { type: ROUNDNESS.ADAPTIVE_RADIUS }
+              : null,
+          });
 
     this.scene.insertElement(frame);
 
@@ -8359,9 +8547,20 @@ class App extends React.Component<AppProps, AppState> {
         const selectedElementsHasAFrame = selectedElements.find((e) =>
           isFrameLikeElement(e),
         );
+        // Connector page membership follows their ends, not the pointer, and
+        // notes never join a page, so neither makes a hovered page a target.
+        const onlyConnectors = selectedElements.every(
+          (e) =>
+            isArrowElement(e) ||
+            isNoteElement(e) ||
+            (isBoundToContainer(e) &&
+              isArrowElement(this.scene.getElement(e.containerId))),
+        );
         const topLayerFrame = this.getTopLayerFrameAtSceneCoords(pointerCoords);
         const frameToHighlight =
-          topLayerFrame && !selectedElementsHasAFrame ? topLayerFrame : null;
+          topLayerFrame && !selectedElementsHasAFrame && !onlyConnectors
+            ? topLayerFrame
+            : null;
         // Only update the state if there is a difference
         if (this.state.frameToHighlight !== frameToHighlight) {
           flushSync(() => {
@@ -8842,12 +9041,13 @@ class App extends React.Component<AppProps, AppState> {
               shouldReuseSelection = false;
             }
           }
+          // A page and its members are never selected together: selecting
+          // the page already covers its contents for move, copy and delete.
           const elementsWithinSelection = this.state.selectionElement
             ? getElementsWithinSelection(
                 elements,
                 this.state.selectionElement,
                 this.scene.getNonDeletedElementsMap(),
-                false,
               )
             : [];
 
@@ -9219,6 +9419,11 @@ class App extends React.Component<AppProps, AppState> {
           // so that the scene gets rendered again to display the newly drawn linear as well
           this.scene.triggerUpdate();
         }
+        return;
+      }
+
+      if (isNoteElement(newElement)) {
+        this.finalizeNewNote(newElement);
         return;
       }
 

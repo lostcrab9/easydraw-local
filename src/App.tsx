@@ -4,6 +4,8 @@ import { useWorkspaceInteraction } from "./canvas/workspace-interaction";
 import { LibrarySidebar } from "./components/LibrarySidebar";
 import { IconLibraryPopover } from "./features/assets/IconLibraryPopover";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { PreferencesDialog } from "./components/PreferencesDialog";
+import { readElementDefaults, saveElementDefaults } from "./features/preferences/element-defaults";
 import { McpDialog } from "./components/McpDialog";
 import { hasSkillUpdate, SKILL_UPDATE_STORAGE_KEY } from "./core/skill-update";
 import { ApplicationMenu } from "./components/ApplicationMenu";
@@ -18,7 +20,7 @@ import { CanvasSession } from "./canvas/canvas-session";
 import { EditorSession } from "./app/editor-session";
 
 import { isVectorElement } from "./core/element-commands";
-import { EasyDraw, MainMenu } from "@easydraw/canvas-engine";
+import { EasyDraw, MainMenu, PreferencesIcon, type ElementDefaults } from "@easydraw/canvas-engine";
 
 import type { EasyDrawImperativeAPI } from "@easydraw/canvas-engine/types";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -27,6 +29,13 @@ import { createPortal } from "react-dom";
 import easyDrawIconUrl from "../assets/branding/easydraw-icon.svg";
 import leftSidebarIcon from "../assets/icons/left-sidebar.svg";
 import { CanvasViewportOverlay, CanvasZoomControl } from "./components/CanvasViewportUi";
+
+const NOTICE_TOAST_TONES = {
+  neutral: "info",
+  warning: "info",
+  success: "success",
+  danger: "danger",
+} as const satisfies Record<Notice["tone"], "info" | "success" | "danger">;
 
 const DEFAULT_TEXT_FONT_FAMILY = 6;
 
@@ -108,6 +117,12 @@ export default function App() {
   const canHandleShortcut = useWorkspaceInteraction(workspaceRef, canvasWrapRef);
   const [locale, setLocale] = useState<AppLocale>(initialLocale);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [elementDefaults, setElementDefaults] = useState(readElementDefaults);
+  const updateElementDefaults = useCallback((next: ElementDefaults) => {
+    setElementDefaults(next);
+    saveElementDefaults(next);
+  }, []);
   const t = useCallback(
     (message: string, values?: Record<string, string | number>) =>
       translate(locale, message, values),
@@ -165,7 +180,6 @@ export default function App() {
     Record<string, "active" | "leaving">
   >({});
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false);
-  const [noticeVisible, setNoticeVisible] = useState(true);
   useEffect(() => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     document.documentElement.lang = locale;
@@ -252,17 +266,22 @@ export default function App() {
   };
 
   const assets = useAssets({ editorSession, canvasSession, api, projectPath, snapshot, selectedIds,
-    select, setNotice });
+    select, setNotice, iconDefaults: elementDefaults.icon });
   const materials = useMaterials({ editorSession, canvasSession, api, selectedIds, locale,
     select,
     showMaterials: () => setLeftPanelTab("materials"), setNotice });
   const { preloadInsertedAssets, importAsset, handleCanvasPasteCapture } = assets;
   const { materialLibraryItems, handleMaterialLibraryChange } = materials;
+  // Host notices use the engine toast, so only one notice is ever on screen
+  // and every message looks the same. A notice raised before the canvas
+  // mounts shows once the engine is ready.
   useEffect(() => {
-    setNoticeVisible(true);
-    const timer = window.setTimeout(() => setNoticeVisible(false), 3200);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
+    api?.setToast({
+      message: localizeRuntimeMessage(locale, notice.text),
+      tone: NOTICE_TOAST_TONES[notice.tone],
+    });
+    // Locale is left out on purpose: switching language must not replay the last notice.
+  }, [api, notice]);
 
   useEffect(() => {
     const closeMenu = (event: KeyboardEvent) => {
@@ -459,6 +478,7 @@ export default function App() {
         >
           <EasyDraw
             shouldHandleKeyboardEvent={canHandleShortcut}
+            elementDefaults={elementDefaults}
             viewModeEnabled={!snapshot.document.activeCanvasId}
             documentHistory={{ undo, redo, canUndo: (snapshot.canUndo || (hasPendingEdit && canvasSession.hasPendingEdit)), canRedo: snapshot.canRedo }}
             canvasAPI={setApi}
@@ -495,6 +515,9 @@ export default function App() {
             }}
           >
             <MainMenu>
+              <MainMenu.Item icon={PreferencesIcon} onSelect={() => setPreferencesOpen(true)} data-testid="main-menu-preferences">
+                {t("偏好设置…")}
+              </MainMenu.Item>
               <MainMenu.DefaultItems.SaveAsImage />
               <MainMenu.DefaultItems.Help />
               <MainMenu.DefaultItems.ClearCanvas />
@@ -641,20 +664,14 @@ export default function App() {
               canvasToolbar,
             )}
 
-          {noticeVisible && (
-            <div className={`canvas-notice canvas-notice--${notice.tone}`} role="status">
-              <span aria-hidden="true">
-                {notice.tone === "success" ? "✓" : notice.tone === "danger" ? "!" : "i"}
-              </span>
-              {localizeRuntimeMessage(locale, notice.text)}
-            </div>
-          )}
         </div>
       </main>
 
       {mcpDialogOpen && <McpDialog {...{ mcpDialogOpen, setMcpDialogOpen, t, mcpRuntime, mcpConnectionInfo, mcpLoading, setMcpEnabled, skillUpdateAvailable, acknowledgeSkillUpdate }} />}
 
       <SettingsDialog {...{ settingsOpen, setSettingsOpen, t, locale, setLocale }} />
+      <PreferencesDialog open={preferencesOpen} onClose={() => setPreferencesOpen(false)} t={t}
+        defaults={elementDefaults} onChange={updateElementDefaults} />
 
     </div>
   );

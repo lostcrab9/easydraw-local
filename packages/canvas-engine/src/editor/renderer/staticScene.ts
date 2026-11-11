@@ -8,6 +8,7 @@ import {
 } from "../frame";
 import {
   isArrowElement,
+  isNoteElement,
   isEmbeddableElement,
   isFrameLikeElement,
   isIframeLikeElement,
@@ -380,7 +381,8 @@ const _renderStaticScene = ({
       (element) =>
         !isIframeLikeElement(element) &&
         !isArrowElement(element) &&
-        !isFrameLikeElement(element),
+        !isFrameLikeElement(element) &&
+        !isNoteElement(element),
     ),
   );
 
@@ -469,6 +471,8 @@ const _renderStaticScene = ({
   // and are never clipped by pages. Their relative order follows scene order.
   if (renderConfig.renderConnectors !== false) {
     renderElements(visibleElements.filter(isArrowElement));
+    // Notes are their own top layer, above every content element and arrow.
+    renderElements(visibleElements.filter(isNoteElement));
   }
 
   // render pending nodes for flowcharts

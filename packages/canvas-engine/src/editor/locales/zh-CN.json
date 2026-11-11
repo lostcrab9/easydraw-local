@@ -1,5 +1,13 @@
 {
   "labels": {
+    "noteColor": "便签颜色",
+    "noteColors": {
+      "yellow": "黄色",
+      "blue": "蓝色",
+      "green": "绿色",
+      "pink": "粉色",
+      "gray": "灰色"
+    },
     "showSelectionInspector": "显示右侧属性面板",
     "collapseSelectionInspector": "收起属性面板",
     "selectionProperties": "属性",
@@ -156,7 +164,7 @@
   "elementLink": {
     "title": "链接到对象",
     "desc": "点击画布上的对象，或粘贴对象链接。",
-    "notFound": "未找到链接指向的对象，可能已被删除。"
+    "notFound": "未找到链接指向的元素，可能已被删除"
   },
   "library": {
     "noItems": "尚未添加任何项目……",
@@ -251,6 +259,9 @@
     "asyncPasteFailedOnParse": "无法粘贴。",
     "copyToSystemClipboardFailed": "无法复制到剪贴板。"
   },
+  "element": {
+    "note": "便签"
+  },
   "toolBar": {
     "selection": "选择",
     "image": "插入图像",
@@ -261,6 +272,7 @@
     "line": "线条",
     "freedraw": "自由书写",
     "text": "文字",
+    "note": "便签",
     "library": "素材库",
     "lock": "绘制后保持所选的工具栏状态",
     "penMode": "笔模式 – 避免误触",
@@ -457,18 +469,19 @@
     "width": "宽度"
   },
   "toast": {
-    "addedToLibrary": "添加到素材库中",
-    "copyStyles": "样式已拷贝。",
-    "copyToClipboard": "已复制到剪切板。",
-    "copyToClipboardAsPng": "已将 {{exportSelection}} 作为 PNG 复制到剪贴板\n({{exportColorScheme}})",
-    "fileSaved": "文件已保存。",
-    "fileSavedToFilename": "保存到 {filename}",
+    "addedToLibrary": "已添加到素材库",
+    "copyStyles": "已复制样式",
+    "copyToClipboard": "已复制到剪贴板",
+    "copyToClipboardAsPng": "{{exportSelection}}已复制为 PNG（{{exportColorScheme}}）",
+    "copyToClipboardAsSvg": "{{exportSelection}}已复制为 SVG（{{exportColorScheme}}）",
+    "fileSaved": "文件已保存",
+    "fileSavedToFilename": "已保存到 {filename}",
     "canvas": "画布",
-    "selection": "所选项",
-    "pasteAsSingleElement": "使用 {{shortcut}} 粘贴为单个元素，\n或粘贴到现有的文本编辑器里",
-    "unableToEmbed": "目前不允许嵌入此网址。请在 GitHub 上提 issue 请求将此网址加入白名单",
-    "unrecognizedLinkFormat": "您嵌入的链接不符合格式要求。请尝试粘贴源网站提供的“嵌入 (embed)”字符串",
-    "elementLinkCopied": "对象链接已复制到剪贴板"
+    "selection": "所选内容",
+    "pasteAsSingleElement": "按 {{shortcut}} 可粘贴为单个元素，或粘贴到正在编辑的文本里",
+    "unableToEmbed": "暂不支持嵌入此网址",
+    "unrecognizedLinkFormat": "链接格式无法识别，请粘贴来源网站提供的嵌入（embed）代码",
+    "elementLinkCopied": "元素链接已复制"
   },
   "colors": {
     "transparent": "透明",

@@ -58,6 +58,16 @@ export const NativeElementSchema: z.ZodType<EasyDrawElement> = z.discriminatedUn
   ElementBaseSchema.extend({ type: z.literal("embeddable") }),
   ElementBaseSchema.extend({ type: z.literal("iframe") }),
   NativePageElementSchema,
+  ElementBaseSchema.extend({
+    type: z.literal("note"),
+    content: z.discriminatedUnion("format", [
+      z.object({ format: z.literal("plain"), text: z.string().max(100000) }).strict(),
+    ]),
+    fontSize: finite.positive().max(1000), fontFamily: finite.int(),
+    textAlign: z.enum(["left", "center", "right"]),
+    lineHeight: finite.positive().max(10).transform((value) => value as EasyDrawTextElement["lineHeight"]),
+    autoHeight: z.boolean(),
+  }),
   ElementBaseSchema.extend({ type: z.literal("magicframe"), name: z.string().nullable() }),
   ElementBaseSchema.extend({
     type: z.literal("text"), text: z.string().max(100000), originalText: z.string().max(100000),

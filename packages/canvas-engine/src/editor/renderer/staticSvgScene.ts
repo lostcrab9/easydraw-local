@@ -1,4 +1,5 @@
 import { isVectorElement } from "./vector";
+import { renderNoteToSvgNodes } from "./note";
 import { getPageRadius } from "./page";
 import type { Drawable } from "roughjs/bin/core";
 import type { RoughSVG } from "roughjs/bin/svg";
@@ -21,6 +22,7 @@ import {
 } from "../element/textElement";
 import {
   isArrowElement,
+  isNoteElement,
   isFrameLikeElement,
   isIframeLikeElement,
   isInitializedImageElement,
@@ -593,6 +595,23 @@ const renderElementToSvg = (
       }
       break;
     }
+    case "note": {
+      const node = svgRoot.ownerDocument!.createElementNS(SVG_NS, "g");
+      node.setAttribute(
+        "transform",
+        `translate(${offsetX || 0} ${offsetY || 0}) rotate(${degree} ${cx} ${cy})`,
+      );
+      if (opacity !== 1) node.setAttribute("opacity", `${opacity}`);
+      for (const child of renderNoteToSvgNodes(
+        element,
+        svgRoot.ownerDocument!,
+        `note-clip-${element.id}`,
+      )) {
+        node.appendChild(child);
+      }
+      addToRoot(node, element);
+      break;
+    }
     // frames are not rendered and only acts as a container
     case "frame":
     case "magicframe": {
@@ -769,11 +788,14 @@ export const renderSceneToSvg = (
       (element) =>
         !isIframeLikeElement(element) &&
         !isArrowElement(element) &&
-        !isFrameLikeElement(element),
+        !isFrameLikeElement(element) &&
+        !isNoteElement(element),
     ),
   );
 
   renderElements(elements.filter(isIframeLikeElement));
   renderElements(elements.filter(isFrameLikeElement));
   renderElements(elements.filter(isArrowElement));
+  // Notes are a separate top layer above every content element and arrow.
+  renderElements(elements.filter(isNoteElement));
 };

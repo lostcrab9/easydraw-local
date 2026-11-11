@@ -43,5 +43,11 @@ describe("connector frame clipping", () => {
       shouldApplyFrameClip(connector, page, appState, elementsMap),
     ).toBe(false);
 
+    // A connector whose ends are both in the page is a member and is clipped.
+    const member = { ...connector, frameId: page.id } as EasyDrawElement;
+    elementsMap.set(member.id, member);
+    expect(
+      shouldApplyFrameClip(member, page, appState, elementsMap),
+    ).toBe(true);
   });
 });

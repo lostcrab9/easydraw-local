@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef } from "react";
+import type { ToastTone } from "../types";
 import { CloseIcon } from "./icons";
 import "./Toast.scss";
-import { ToolButton } from "./ToolButton";
 
-const DEFAULT_TOAST_TIMEOUT = 5000;
+// Matches the host notice timing.
+const DEFAULT_TOAST_TIMEOUT = 3200;
 
 export const Toast = ({
   message,
@@ -13,7 +14,9 @@ export const Toast = ({
   // To prevent autoclose, pass duration as Infinity
   duration = DEFAULT_TOAST_TIMEOUT,
   style,
+  tone = "info",
 }: {
+  tone?: ToastTone;
   message: string;
   onClose: () => void;
   closable?: boolean;
@@ -43,20 +46,25 @@ export const Toast = ({
   const onMouseLeave = shouldAutoClose ? scheduleTimeout : undefined;
   return (
     <div
-      className="Toast"
+      className={`Toast Toast--${tone}`}
+      role="status"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={style}
     >
+      <span className="Toast__icon" aria-hidden="true">
+        {tone === "success" ? "✓" : tone === "danger" ? "!" : "i"}
+      </span>
       <p className="Toast__message">{message}</p>
       {closable && (
-        <ToolButton
-          icon={CloseIcon}
+        <button
+          type="button"
+          className="Toast__close"
           aria-label="close"
-          type="icon"
           onClick={onClose}
-          className="close"
-        />
+        >
+          {CloseIcon}
+        </button>
       )}
     </div>
   );

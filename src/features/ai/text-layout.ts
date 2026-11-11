@@ -6,6 +6,19 @@ const containerGeometry = ["x", "y", "width", "height", "angle", "points"] as co
 const differs = (a: object, b: object, keys: readonly string[]) =>
   keys.some(key => JSON.stringify((a as Record<string, unknown>)[key]) !== JSON.stringify((b as Record<string, unknown>)[key]));
 
+type NoteElement = Extract<EasyDrawElement, { type: "note" }>;
+const noteLayoutFields = ["content", "fontSize", "fontFamily", "lineHeight", "width", "height", "autoHeight"] as const;
+
+/** Notes whose height an API write may have invalidated: new notes and edited text, type or size. */
+export function noteLayoutTargets(before: readonly EasyDrawElement[], after: readonly EasyDrawElement[]): NoteElement[] {
+  const previous = new Map(before.map(e => [e.id, e]));
+  return after.filter((e): e is NoteElement => {
+    if (e.type !== "note") return false;
+    const old = previous.get(e.id);
+    return !old || differs(old, e, noteLayoutFields);
+  });
+}
+
 /**
  * Text whose layout an API write may have invalidated: new text, edited
  * typography or wrapping width, and text inside a new or reshaped container.

@@ -29,6 +29,7 @@ export const distanceToBindableElement = (
     case "embeddable":
     case "frame":
     case "magicframe":
+    case "note":
       return distanceToRectanguloidElement(element, p);
     case "diamond":
       return distanceToDiamondElement(element, p);

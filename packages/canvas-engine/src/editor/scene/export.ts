@@ -37,7 +37,12 @@ import {
 import { newTextElement } from "../element";
 import { type Mutable } from "../utility-types";
 import { newElementWith } from "../element/mutateElement";
-import { isFrameLikeElement } from "../element/typeChecks";
+import {
+  isArrowElement,
+  isBoundToContainer,
+  isFrameLikeElement,
+  isNoteElement,
+} from "../element/typeChecks";
 import type { RenderableElementsMap } from "./types";
 import { syncInvalidIndices } from "../fractionalIndex";
 import { renderStaticScene } from "../renderer/staticScene";
@@ -125,7 +130,7 @@ const getFrameRenderingConfig = (
   };
 };
 
-const prepareElementsForRender = ({
+export const prepareElementsForRender = ({
   elements,
   exportingFrame,
   frameRendering,
@@ -139,7 +144,25 @@ const prepareElementsForRender = ({
   let nextElements: readonly EasyDrawElement[];
 
   if (exportingFrame) {
-    nextElements = getElementsOverlappingFrame(elements, exportingFrame);
+    // Arrows that aren't members of this page (e.g. flows to another page)
+    // would only leave a cut-off fragment in the page image.
+    const elementsMap = arrayToMap(elements);
+    nextElements = getElementsOverlappingFrame(elements, exportingFrame).filter(
+      (element) => {
+        // Notes annotate the prototype and are never page members, so they
+        // are left out of a page image. (Captures that adopt every element
+        // into their own frame still include them.)
+        if (isNoteElement(element)) {
+          return element.frameId === exportingFrame.id;
+        }
+        const connector = isArrowElement(element)
+          ? element
+          : isBoundToContainer(element)
+          ? elementsMap.get(element.containerId)
+          : undefined;
+        return !isArrowElement(connector) || connector.frameId === exportingFrame.id;
+      },
+    );
   } else if (frameRendering.enabled && frameRendering.name) {
     nextElements = addFrameLabelsAsTextElements(elements, {
       exportWithDarkMode,

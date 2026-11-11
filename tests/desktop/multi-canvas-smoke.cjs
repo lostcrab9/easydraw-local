@@ -92,7 +92,7 @@ exports.run = async (window, userData) => {
   await settle();
   await run(`document.querySelector('.canvas-tree-row.is-active .tree-more').click()`); await settle(); await choose("重命名");
   await run(`(() => { const input = document.querySelector('.canvas-tree-row input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'原型画布'); input.dispatchEvent(new Event('input',{bubbles:true})); })()`); await settle(); await finishRename();
-  assert(!(await run(`document.querySelector('.canvas-notice')?.textContent ?? ''`)).includes("请先结束拖拽"), "rename after a canvas right-click must not be blocked");
+  assert(!(await run(`document.querySelector('.Toast')?.textContent ?? ''`)).includes("请先结束拖拽"), "rename after a canvas right-click must not be blocked");
   assert.equal(await run(`document.querySelector('.canvas-tree-row.is-active .tree-name').title`), "原型画布");
   // Clicking the canvas ends the rename by blur while that click is still pressed.
   await run(`document.querySelector('.canvas-tree-row.is-active .tree-more').click()`); await settle(); await choose("重命名");
@@ -104,7 +104,7 @@ exports.run = async (window, userData) => {
   window.webContents.sendInputEvent({type:"mouseDown",x:1000,y:500,button:"left",clickCount:1});
   window.webContents.sendInputEvent({type:"mouseUp",x:1000,y:500,button:"left",clickCount:1});
   await settle();
-  assert(!(await run(`document.querySelector('.canvas-notice')?.textContent ?? ''`)).includes("请先结束拖拽"), "clicking the canvas must commit the rename without a gesture warning");
+  assert(!(await run(`document.querySelector('.Toast')?.textContent ?? ''`)).includes("请先结束拖拽"), "clicking the canvas must commit the rename without a gesture warning");
   assert.equal(await run(`document.querySelector('.canvas-tree-row.is-active .tree-name').title`), "流程画布");
   assert.equal((await saved()).document.tree.find(n => n.id === canvas.id).name, "流程画布");
   await run(`document.querySelector('.canvas-tree-row.is-active .tree-more').click()`); await settle(); await choose("复制画布");
@@ -156,7 +156,7 @@ exports.run = async (window, userData) => {
   window.webContents.sendInputEvent({type:"mouseDown",x:1000,y:500,button:"left",clickCount:1});
   window.webContents.sendInputEvent({type:"mouseUp",x:1000,y:500,button:"left",clickCount:1});
   await settle();
-  assert(!(await run(`document.querySelector('.canvas-notice')?.textContent ?? ''`)).includes("请先结束拖拽"), "clicking a new canvas must commit its pending rename without a gesture warning");
+  assert(!(await run(`document.querySelector('.Toast')?.textContent ?? ''`)).includes("请先结束拖拽"), "clicking a new canvas must commit its pending rename without a gesture warning");
   assert(await run(`!document.querySelector('.canvas-tree-row input') && document.querySelectorAll('.tree-name').length === 4`));
   // Backspace deletes the selection with the floating toolbar and with the property panel open.
   const liveElements = async () => Object.values((await saved()).document.canvases).reduce((n, c) => n + c.scene.elements.length, 0);

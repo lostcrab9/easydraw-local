@@ -157,6 +157,7 @@ export const actionCopyAsSvg = register({
       return {
         appState: {
           toast: {
+            tone: "success" as const,
             message: t("toast.copyToClipboardAsSvg", {
               exportSelection: selectedElements.length
                 ? t("toast.selection")
@@ -217,6 +218,7 @@ export const actionCopyAsPng = register({
         appState: {
           ...appState,
           toast: {
+            tone: "success" as const,
             message: t("toast.copyToClipboardAsPng", {
               exportSelection: selectedElements.length
                 ? t("toast.selection")

@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
     app.emit("open-file", { preventDefault() {} }, invalid);
     let failed = false;
     for (let i = 0; i < 100; i++) {
-      failed = await run(`document.querySelector('.canvas-notice')?.textContent.includes('打开项目失败')`);
+      failed = await run(`document.querySelector('.Toast')?.textContent.includes('打开项目失败')`);
       if (failed) break;
       await delay(50);
     }

@@ -27,6 +27,7 @@ import {
   hasBoundTextElement,
   isElbowArrow,
   isImageElement,
+  isNoteElement,
   isLinearElement,
   isTextElement,
 } from "../element/typeChecks";
@@ -183,6 +184,18 @@ export const SelectedShapeActions = ({
           {(appState.activeTool.type === "text" ||
             suppportsHorizontalAlign(targetElements, elementsMap)) &&
             renderAction("changeTextAlign")}
+        </>
+      )}
+
+      {targetElements.some(isNoteElement) && (
+        <>
+          {renderAction("changeNoteColor")}
+          {!targetElements.some(isTextElement) && (
+            <>
+              {renderAction("changeFontSize")}
+              {renderAction("changeTextAlign")}
+            </>
+          )}
         </>
       )}
 

@@ -30,6 +30,7 @@ import {
   isUsingAdaptiveRadius,
 } from "../element/typeChecks";
 import { randomId } from "../random";
+import { NOTE_DEFAULTS } from "@easydraw/document-model";
 import {
   DEFAULT_FONT_FAMILY,
   DEFAULT_TEXT_ALIGN,
@@ -77,6 +78,7 @@ export const AllowedEasyDrawActiveTools: Record<
 > = {
   selection: true,
   text: true,
+  note: true,
   rectangle: true,
   diamond: true,
   ellipse: true,
@@ -383,6 +385,20 @@ const restoreElement = (
         name: element.name ?? null,
         order: element.order ?? 0,
         exportScale: element.exportScale ?? 2,
+      });
+    case "note":
+      return restoreElementWithProperties(element, {
+        content:
+          element.content?.format === "plain"
+            ? element.content
+            : { format: "plain", text: "" },
+        fontSize: element.fontSize ?? NOTE_DEFAULTS.fontSize,
+        fontFamily: element.fontFamily ?? NOTE_DEFAULTS.fontFamily,
+        textAlign: element.textAlign ?? "left",
+        lineHeight:
+          element.lineHeight ??
+          (NOTE_DEFAULTS.lineHeight as EasyDrawTextElement["lineHeight"]),
+        autoHeight: element.autoHeight ?? true,
       });
 
     // Don't use default case so as to catch a missing an element type case.

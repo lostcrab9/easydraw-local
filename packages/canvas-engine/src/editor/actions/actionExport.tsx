@@ -172,6 +172,7 @@ export const actionSaveToActiveFile = register({
                       `"${fileHandle.name}"`,
                     )
                   : t("toast.fileSaved"),
+                tone: "success" as const,
               }
             : null,
         },
@@ -212,7 +213,7 @@ export const actionSaveFileToDisk = register({
           ...appState,
           openDialog: null,
           fileHandle,
-          toast: { message: t("toast.fileSaved") },
+          toast: { message: t("toast.fileSaved"), tone: "success" as const },
         },
       };
     } catch (error: any) {

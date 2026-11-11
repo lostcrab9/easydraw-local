@@ -1,20 +1,81 @@
 import { generateNKeysBetween } from "fractional-indexing";
-import type { EasyDrawElement, FractionalIndex } from "./elements";
+import type { EasyDrawElement, EasyDrawLinearElement, FractionalIndex } from "./elements";
 
-/** Connectors live on the canvas, along with any text bound to them. */
-function normalizeConnectorScope(elements: readonly EasyDrawElement[]): EasyDrawElement[] {
-  const connectorIds = new Set(
-    elements.filter((element) => element.type === "arrow").map((element) => element.id),
-  );
+type PageBounds = { id: string; x: number; y: number; width: number; height: number; angle: number };
+
+const isPage = (element: EasyDrawElement) => element.type === "frame" || element.type === "magicframe";
+
+function pointInPage(x: number, y: number, page: PageBounds) {
+  let px = x, py = y;
+  if (page.angle) {
+    const cx = page.x + page.width / 2, cy = page.y + page.height / 2;
+    const cos = Math.cos(-page.angle), sin = Math.sin(-page.angle);
+    px = cx + (x - cx) * cos - (y - cy) * sin;
+    py = cy + (x - cx) * sin + (y - cy) * cos;
+  }
+  return px >= page.x && px <= page.x + page.width && py >= page.y && py <= page.y + page.height;
+}
+
+type ConnectorElement = Pick<EasyDrawLinearElement, "x" | "y" | "points" | "startBinding" | "endBinding">;
+
+function connectorEndpointPage(
+  connector: ConnectorElement,
+  end: "start" | "end",
+  byId: ReadonlyMap<string, EasyDrawElement>,
+  pages: readonly PageBounds[],
+): string | null {
+  const binding = end === "start" ? connector.startBinding : connector.endBinding;
+  const target = binding ? byId.get(binding.elementId) : undefined;
+  if (target && !target.isDeleted) {
+    if (isPage(target)) return target.id;
+    return target.frameId && pages.some((page) => page.id === target.frameId) ? target.frameId : null;
+  }
+  const point = end === "start" ? connector.points[0] : connector.points[connector.points.length - 1];
+  if (!point) return null;
+  const x = connector.x + point[0], y = connector.y + point[1];
+  // Later pages stack above earlier ones, so the last match is the visible one.
+  for (let index = pages.length - 1; index >= 0; index--) {
+    if (pointInPage(x, y, pages[index]!)) return pages[index]!.id;
+  }
+  return null;
+}
+
+/**
+ * A connector belongs to a page only when both of its ends are in that page;
+ * otherwise it lives on the canvas. Bound ends follow the bound element's page,
+ * free ends follow the page under the point. The path in between never counts,
+ * so a flow between two screens is not captured by a page it crosses.
+ */
+export function resolveConnectorFrameId(
+  connector: ConnectorElement,
+  elements: readonly EasyDrawElement[] | ReadonlyMap<string, EasyDrawElement>,
+): string | null {
+  const list = elements instanceof Map ? [...elements.values()] : elements as readonly EasyDrawElement[];
+  const byId = elements instanceof Map ? elements as ReadonlyMap<string, EasyDrawElement> : new Map(list.map((element) => [element.id, element]));
+  return connectorPage(connector, byId, list.filter((element) => isPage(element) && !element.isDeleted));
+}
+
+function connectorPage(connector: ConnectorElement, byId: ReadonlyMap<string, EasyDrawElement>, pages: readonly PageBounds[]) {
+  const start = connectorEndpointPage(connector, "start", byId, pages);
+  return start !== null && start === connectorEndpointPage(connector, "end", byId, pages) ? start : null;
+}
+
+/** Connector page membership is derived from its ends; labels follow their connector. */
+export function normalizeConnectorScope(elements: readonly EasyDrawElement[]): EasyDrawElement[] {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const pages = elements.filter((element) => isPage(element) && !element.isDeleted);
+  const connectorPages = new Map<string, string | null>();
+  for (const element of elements) {
+    if (element.type === "arrow") connectorPages.set(element.id, connectorPage(element, byId, pages));
+  }
   return elements.map((element) => {
-    const isConnectorLabel =
-      element.type === "text" &&
-      element.containerId !== null &&
-      connectorIds.has(element.containerId);
-    if ((element.type === "arrow" || isConnectorLabel) && element.frameId !== null) {
-      return { ...element, frameId: null, version: element.version + 1 };
-    }
-    return element;
+    const frameId = element.type === "arrow"
+      ? connectorPages.get(element.id)!
+      : element.type === "text" && element.containerId !== null && connectorPages.has(element.containerId)
+        ? connectorPages.get(element.containerId)!
+        : undefined;
+    if (frameId === undefined || element.frameId === frameId) return element;
+    return { ...element, frameId, version: element.version + 1 };
   });
 }
 
@@ -22,7 +83,7 @@ function normalizeConnectorScope(elements: readonly EasyDrawElement[]): EasyDraw
 export function isConnectorBindingTarget(element: EasyDrawElement): boolean {
   switch (element.type) {
     case "rectangle": case "diamond": case "ellipse": case "image":
-    case "frame": case "magicframe": case "iframe": case "embeddable": return true;
+    case "frame": case "magicframe": case "iframe": case "embeddable": case "note": return true;
     case "text": return element.containerId === null;
     default: return false;
   }
@@ -63,9 +124,40 @@ export function normalizePageLayerOrder(elements: readonly EasyDrawElement[]): E
     element.type === "frame" ? [...elements.filter((child) => child.frameId === element.id), element] : [element]);
 }
 
+/** Notes live on the canvas, outside every page and group. */
+export function normalizeNoteScope(elements: readonly EasyDrawElement[]): EasyDrawElement[] {
+  let changed = false;
+  const next = elements.map((element) => {
+    if (element.type !== "note" || (element.frameId === null && element.groupIds.length === 0)) return element;
+    changed = true;
+    return { ...element, frameId: null, groupIds: [], version: element.version + 1 };
+  });
+  return changed ? next : elements as EasyDrawElement[];
+}
+
+const ELBOW_ONLY_FIELDS = ["fixedSegments", "startIsSpecial", "endIsSpecial"] as const;
+
+/**
+ * Elbow routing data on a curved or straight arrow is stale: it once blocked
+ * switching such an arrow back to elbow. Drop it so old documents heal on load.
+ */
+export function normalizeArrowRouting(elements: readonly EasyDrawElement[]): EasyDrawElement[] {
+  let changed = false;
+  const next = elements.map((element) => {
+    if (element.type !== "arrow" || ("elbowed" in element && element.elbowed)) return element;
+    const record = element as unknown as Record<string, unknown>;
+    if (!ELBOW_ONLY_FIELDS.some((field) => record[field] != null)) return element;
+    changed = true;
+    const copy = { ...record };
+    for (const field of ELBOW_ONLY_FIELDS) delete copy[field];
+    return { ...(copy as unknown as EasyDrawElement), version: element.version + 1 };
+  });
+  return changed ? next : elements as EasyDrawElement[];
+}
+
 /** One canonical ordering for command commits, persistence and the renderer. */
 export function normalizeSceneElements(elements: readonly EasyDrawElement[]): EasyDrawElement[] {
-  const ordered = normalizePageLayerOrder(normalizeConnectorBindings(normalizeConnectorScope(elements)));
+  const ordered = normalizePageLayerOrder(normalizeConnectorScope(normalizeConnectorBindings(normalizeArrowRouting(normalizeNoteScope(elements)))));
   let previous: string | null = null;
   const valid = ordered.every((element) => {
     const valid = element.index !== null && (previous === null || element.index > previous);

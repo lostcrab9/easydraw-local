@@ -1,4 +1,4 @@
-import type { EasyDrawElement } from "@easydraw/document-model";
+import { getNotePlainText, type EasyDrawElement } from "@easydraw/document-model";
 import type { CanvasScope, ProjectDocument } from "./protocol";
 import { fail } from "./canvas-commands";
 import { elementBounds, intersects, unionBounds } from "./canvas-geometry";
@@ -20,7 +20,7 @@ export function canvasOutline(document: ProjectDocument, scope: CanvasScope, off
   const elements = scopeElements(document, scope), groups = new Map<string, EasyDrawElement[]>();
   for (const e of elements) for (const id of e.groupIds) groups.set(id, [...groups.get(id) ?? [], e]);
   const items = elements.map(e => ({ id: e.id, type: e.type, ...(e.type === "frame" ? { name: e.name } : {}), frameId: e.frameId, groupIds: e.groupIds,
-    bounds: elementBounds(e), ...(e.type === "text" ? { textPreview: e.text.slice(0, 120) } : {}),
+    bounds: elementBounds(e), ...(e.type === "text" ? { textPreview: e.text.slice(0, 120) } : e.type === "note" ? { textPreview: getNotePlainText(e.content).slice(0, 120) } : {}),
     ...(e.type === "frame" ? { childCount: document.scene.elements.filter(c => c.frameId === e.id).length } : {}),
   }));
   return { documentId: document.projectId, canvasId: document.activeCanvasId, revision: document.revision, bounds: unionBounds(elements.map(e => elementBounds(e))),

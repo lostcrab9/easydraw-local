@@ -14,7 +14,7 @@ const descriptions: Record<CanvasMethod, string> = {
   get_outline: "读取显式范围的元素与分组摘要，支持分页；后续分页携带首次返回的 revision。",
   query_elements: "按显式范围、ID、原生类型、分组、文字、锁定与 metadata 查询；支持字段裁剪和 revision 校验。",
   get_changes: "读取某 revision 之后的变更摘要；历史过期返回 CHANGE_HISTORY_EXPIRED。",
-  apply_operations: "真实编辑必须先 begin_task，并携带覆盖目标的活动 taskId；dryRun 可省略。保持任务到截图验证和修正完成再 finish_task。图标可用简短英文 iconDescription 自动选取第一名，颜色同时设置 strokeColor，无需先搜索。以一个原子事务提交通用编辑、素材引用和布局。本批涉及的 Frame 在成员超出底部时自动增高，宽度与成员位置不变，返回 frameHeightChanges；成员需显式 frameId，分组与局部坐标不代表归属。支持同批 ref、明确坐标系、dryRun、revision 与幂等 requestId。angle 使用弧度，opacity 使用 0–100。",
+  apply_operations: "真实编辑必须先 begin_task，并携带覆盖目标的活动 taskId；dryRun 可省略。保持任务到截图验证和修正完成再 finish_task。图标可用简短英文 iconDescription 自动选取第一名，颜色同时设置 strokeColor，无需先搜索。以一个原子事务提交通用编辑、素材引用和布局。本批涉及的 Frame 在成员超出底部时自动增高，宽度与成员位置不变，返回 frameHeightChanges；成员需显式 frameId，分组与局部坐标不代表归属；箭头不设 frameId，两端（绑定元素所在 Frame 或端点所在 Frame）都在同一 Frame 内时自动归属该 Frame，否则属于画布。Frame 不能打组。分隔线、下划线等线条用 type: line（points 相对 x/y，设 roughness: 0），不要用细矩形代替。便签用 type: note（text 或 content 写文字，宽度必填，height 为 0 时按文字自适应），用于给原型写说明；便签始终属于画布，不能设 frameId，不能打组，可作为箭头端点。支持同批 ref、明确坐标系、dryRun、revision 与幂等 requestId。angle 使用弧度，opacity 使用 0–100。",
   measure_text: "通过画布实际字体测量文字，支持宽度约束与自动换行。",
   get_bounds: "获取指定范围的旋转后边界，按需包含描边。",
   search_assets: "仅搜索显式指定的 document 或 builtin 素材来源；不搜索互联网和用户硬盘。返回可直接用于 apply_operations 的 assetRef。",

@@ -172,6 +172,7 @@ export const intersectElementWithLineSegment = (
     case "embeddable":
     case "frame":
     case "magicframe":
+    case "note":
       return intersectRectanguloidWithLineSegment(element, line, offset);
     case "diamond":
       return intersectDiamondWithLineSegment(element, line, offset);

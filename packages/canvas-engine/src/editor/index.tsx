@@ -113,6 +113,7 @@ const EasyDrawBase = (props: EasyDrawProps) => {
         <App
           onChange={onChange}
           documentHistory={documentHistory}
+          elementDefaults={props.elementDefaults}
           initialData={initialData}
           canvasAPI={canvasAPI}
           isCollaborating={false}
@@ -211,6 +212,14 @@ const areEqual = (prevProps: EasyDrawProps, nextProps: EasyDrawProps) => {
 
 export const EasyDraw = React.memo(EasyDrawBase, areEqual);
 EasyDraw.displayName = "EasyDraw";
+
+export {
+  DEFAULT_ELEMENT_DEFAULTS,
+  ARROWHEAD_OPTIONS,
+  normalizeElementDefaults,
+} from "./elementDefaults";
+export type { ElementDefaults, ElementDefaultsKind } from "./elementDefaults";
+export { PreferencesIcon } from "./components/icons";
 
 export {
   getSceneVersion,

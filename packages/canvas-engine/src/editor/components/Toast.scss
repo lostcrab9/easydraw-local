@@ -1,49 +1,89 @@
 @import "../css/variables.module.scss";
 
+// The one notice style: hosts send their own notices through setToast and may
+// recolour it or move it clear of their toolbars with the --easydraw-toast-* tokens.
 .easydraw {
   .Toast {
-    $closeButtonSize: 1.2rem;
-    $closeButtonPadding: 0.4rem;
-
-    animation: fade-in 0.5s;
-    background-color: var(--button-gray-1);
-    border-radius: 4px;
-    bottom: 10px;
-    box-sizing: border-box;
-    cursor: default;
-    left: 50%;
-    margin-left: -150px;
-    padding: 4px 0;
     position: absolute;
-    text-align: center;
-    width: 300px;
     z-index: 999999;
+    bottom: var(--easydraw-toast-bottom, 16px);
+    left: 50%;
+    display: flex;
+    box-sizing: border-box;
+    max-width: min(520px, calc(100% - 40px));
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--easydraw-toast-bg, #2b2724);
+    color: #fff;
+    box-shadow: 0 4px 8px rgb(0 0 0 / 0.18);
+    font-size: 11px;
+    line-height: 1.4;
+    cursor: default;
+    transform: translateX(-50%);
+    animation: toast-in 0.18s ease-out;
 
-    .Toast__message {
-      padding: 0 $closeButtonSize + ($closeButtonPadding);
-      color: var(--popup-text-color);
-      white-space: pre-wrap;
+    &--success {
+      background: var(--easydraw-toast-success-bg, #1f5a35);
     }
 
-    .close {
-      position: absolute;
-      top: 0;
-      right: 0;
-      padding: $closeButtonPadding;
-
-      .ToolIcon__icon {
-        width: $closeButtonSize;
-        height: $closeButtonSize;
-      }
+    &--danger {
+      background: var(--easydraw-toast-danger-bg, #9b2c1f);
     }
   }
 
-  @keyframes fade-in {
+  .Toast__icon {
+    display: grid;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 0.18);
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  .Toast__message {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+
+  .Toast__close {
+    display: grid;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    place-items: center;
+    padding: 0;
+    margin-right: -4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+
+    &:hover {
+      background: rgb(255 255 255 / 0.14);
+      opacity: 1;
+    }
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  @keyframes toast-in {
     from {
       opacity: 0;
+      transform: translate(-50%, 4px);
     }
     to {
       opacity: 1;
+      transform: translate(-50%, 0);
     }
   }
 }

@@ -64,6 +64,7 @@ import { isRightAngleRads } from "../../math";
 import { getCornerRadius } from "../shapes";
 import { getUncroppedImageElement } from "../element/cropElement";
 import { getLineHeightInPx } from "../element/textMeasurements";
+import { drawNoteOnCanvas } from "./note";
 import { drawVectorElement, isVectorElement } from "./vector";
 import { getPageRadius } from "./page";
 
@@ -412,6 +413,10 @@ const drawElementOnCanvas = (
       ShapeCache.get(element)!.forEach((shape) => {
         rc.draw(shape);
       });
+      break;
+    }
+    case "note": {
+      drawNoteOnCanvas(element, context);
       break;
     }
     case "freedraw": {
@@ -809,6 +814,7 @@ export const renderElement = (
     case "arrow":
     case "image":
     case "text":
+    case "note":
     case "iframe":
     case "embeddable": {
       // TODO investigate if we can do this in situ. Right now we need to call
